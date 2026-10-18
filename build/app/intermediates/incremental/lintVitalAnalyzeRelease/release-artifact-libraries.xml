@@ -1,10 +1,10 @@
 <libraries>
   <library
       name=":@@:audio_service::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1aece2155203836b9d44ef48789b238a/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/1aece2155203836b9d44ef48789b238a/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9fa50f8ad2891b7be58afdd43c5f8a6b/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/9fa50f8ad2891b7be58afdd43c5f8a6b/transformed/out/jars/libs/R.jar"
       resolved="com.ryanheise.audioservice:audio_service:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/audio_service/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1aece2155203836b9d44ef48789b238a/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/audio_service/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9fa50f8ad2891b7be58afdd43c5f8a6b/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -15,10 +15,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:audio_session::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9255fbe41d038b69a0113fc8a01e306e/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/9255fbe41d038b69a0113fc8a01e306e/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/55746c90ffcf93c10b70b8f2afaa7278/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/55746c90ffcf93c10b70b8f2afaa7278/transformed/out/jars/libs/R.jar"
       resolved="com.ryanheise.audio_session:audio_session:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/audio_session/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9255fbe41d038b69a0113fc8a01e306e/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/audio_session/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/55746c90ffcf93c10b70b8f2afaa7278/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -29,10 +29,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:jni::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/2d4df6b4192e8582042e61546f2e6011/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/2d4df6b4192e8582042e61546f2e6011/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4e5e55b64e18a86c8a2724044ad2531d/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/4e5e55b64e18a86c8a2724044ad2531d/transformed/out/jars/libs/R.jar"
       resolved="com.github.dart_lang.jni:jni:1.0"
-      partialResultsDir="/home/pharmaracist/fathom/build/jni/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/2d4df6b4192e8582042e61546f2e6011/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/jni/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4e5e55b64e18a86c8a2724044ad2531d/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -43,10 +43,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:jni_flutter::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4b25f91ae2f0b46daba10c1d60801992/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/4b25f91ae2f0b46daba10c1d60801992/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/200fd00e5c1022859cbf98e594349116/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/200fd00e5c1022859cbf98e594349116/transformed/out/jars/libs/R.jar"
       resolved="com.github.dart_lang.jni_flutter:jni_flutter:1.0"
-      partialResultsDir="/home/pharmaracist/fathom/build/jni_flutter/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4b25f91ae2f0b46daba10c1d60801992/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/jni_flutter/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/200fd00e5c1022859cbf98e594349116/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -57,10 +57,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:just_audio::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/c4859d122aa3aa96bc35bc30d445677c/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/c4859d122aa3aa96bc35bc30d445677c/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d9645603397aaf58313164c4e4d4bc95/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/d9645603397aaf58313164c4e4d4bc95/transformed/out/jars/libs/R.jar"
       resolved="com.ryanheise.just_audio:just_audio:1.0"
-      partialResultsDir="/home/pharmaracist/fathom/build/just_audio/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/c4859d122aa3aa96bc35bc30d445677c/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/just_audio/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d9645603397aaf58313164c4e4d4bc95/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -71,10 +71,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:on_audio_query_android::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eae7a5f99080cb75bee1d4bc6d560b18/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/eae7a5f99080cb75bee1d4bc6d560b18/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a2b0c84c8c8ea46ed296363805d2622c/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/a2b0c84c8c8ea46ed296363805d2622c/transformed/out/jars/libs/R.jar"
       resolved="com.lucasjosino.on_audio_query:on_audio_query_android:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/on_audio_query_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eae7a5f99080cb75bee1d4bc6d560b18/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/on_audio_query_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a2b0c84c8c8ea46ed296363805d2622c/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -85,10 +85,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:shared_preferences_android::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/58106e4bd64f6c44bc643e5cd8dccf7c/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/58106e4bd64f6c44bc643e5cd8dccf7c/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5fe9ea0324e545492bd84c669551089e/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/5fe9ea0324e545492bd84c669551089e/transformed/out/jars/libs/R.jar"
       resolved="io.flutter.plugins.sharedpreferences:shared_preferences_android:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/shared_preferences_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/58106e4bd64f6c44bc643e5cd8dccf7c/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/shared_preferences_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5fe9ea0324e545492bd84c669551089e/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -99,10 +99,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:sqflite_android::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ed25782c3b30fdd128295047892621cf/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/ed25782c3b30fdd128295047892621cf/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/23f2b84f5542b87c34bffd702e7c6284/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/23f2b84f5542b87c34bffd702e7c6284/transformed/out/jars/libs/R.jar"
       resolved="com.tekartik.sqflite:sqflite_android:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/sqflite_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ed25782c3b30fdd128295047892621cf/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/sqflite_android/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/23f2b84f5542b87c34bffd702e7c6284/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -113,10 +113,10 @@
       proguardRules="proguard.txt"/>
   <library
       name=":@@:volume_controller::release"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fe5085b3d97d635ef63b3503eda4ced2/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/fe5085b3d97d635ef63b3503eda4ced2/transformed/out/jars/libs/R.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/2e7e56ce5655ddd5b0a77d0f8d922083/transformed/out/jars/classes.jar:/home/pharmaracist/.gradle/caches/9.3.1/transforms/2e7e56ce5655ddd5b0a77d0f8d922083/transformed/out/jars/libs/R.jar"
       resolved="com.kurenai7968.volume_controller:volume_controller:1.0-SNAPSHOT"
-      partialResultsDir="/home/pharmaracist/fathom/build/volume_controller/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fe5085b3d97d635ef63b3503eda4ced2/transformed/out"
+      partialResultsDir="/home/pharmaracist/Projects/Fathom/build/volume_controller/intermediates/lint_vital_partial_results/release/lintVitalAnalyzeRelease/out"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/2e7e56ce5655ddd5b0a77d0f8d922083/transformed/out"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -131,9 +131,9 @@
       resolved="io.flutter:flutter_embedding_release:1.0.0-deb287481e3ce9468f3434937ced4240a70539ca"/>
   <library
       name="androidx.fragment:fragment:1.7.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f50199c6f2c0bda4d178780a23cc1f50/transformed/fragment-1.7.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b658aaf6019b86762831d9a7c1f51eae/transformed/fragment-1.7.1/jars/classes.jar"
       resolved="androidx.fragment:fragment:1.7.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f50199c6f2c0bda4d178780a23cc1f50/transformed/fragment-1.7.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b658aaf6019b86762831d9a7c1f51eae/transformed/fragment-1.7.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -144,9 +144,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.activity:activity:1.8.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/670c42120b4e285772fcf22135293e72/transformed/activity-1.8.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ec6fc91c88e07ef3bc8c9d9c2a359864/transformed/activity-1.8.1/jars/classes.jar"
       resolved="androidx.activity:activity:1.8.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/670c42120b4e285772fcf22135293e72/transformed/activity-1.8.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ec6fc91c88e07ef3bc8c9d9c2a359864/transformed/activity-1.8.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -157,9 +157,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.loader:loader:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1910b6d9312a778ba1bce42e0ad447b6/transformed/loader-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/14a0e0351bc7b591304d4d6460699c95/transformed/loader-1.0.0/jars/classes.jar"
       resolved="androidx.loader:loader:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1910b6d9312a778ba1bce42e0ad447b6/transformed/loader-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/14a0e0351bc7b591304d4d6460699c95/transformed/loader-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -170,9 +170,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5bf42ee1243bc8553b0b0f5e9217a5e8/transformed/lifecycle-livedata-core-ktx-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ca7e61e62407db96bfdc749fdb91738f/transformed/lifecycle-livedata-core-ktx-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5bf42ee1243bc8553b0b0f5e9217a5e8/transformed/lifecycle-livedata-core-ktx-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ca7e61e62407db96bfdc749fdb91738f/transformed/lifecycle-livedata-core-ktx-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -183,9 +183,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-livedata:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1ff99216ea621199391367349185a5c0/transformed/lifecycle-livedata-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d37d9b972e5b5469385f5c18a65971b0/transformed/lifecycle-livedata-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-livedata:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1ff99216ea621199391367349185a5c0/transformed/lifecycle-livedata-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d37d9b972e5b5469385f5c18a65971b0/transformed/lifecycle-livedata-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -196,9 +196,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/516b6a68a64c500f5e831b94e32b4b7c/transformed/lifecycle-viewmodel-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3a3b7eb4c8f69623adf59ef2b01d036f/transformed/lifecycle-viewmodel-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-viewmodel:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/516b6a68a64c500f5e831b94e32b4b7c/transformed/lifecycle-viewmodel-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3a3b7eb4c8f69623adf59ef2b01d036f/transformed/lifecycle-viewmodel-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -209,9 +209,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-livedata-core:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3426c2155b5573e7f9d7789e3d58fffa/transformed/lifecycle-livedata-core-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3c22ba86fc6f2623f882c3d7fc43b7b8/transformed/lifecycle-livedata-core-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-livedata-core:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3426c2155b5573e7f9d7789e3d58fffa/transformed/lifecycle-livedata-core-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3c22ba86fc6f2623f882c3d7fc43b7b8/transformed/lifecycle-livedata-core-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -222,9 +222,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/099fa84de9a3b9c91d7f9d4a61afe2f1/transformed/lifecycle-viewmodel-savedstate-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fc422dc8e8feabc5097f563721b621f0/transformed/lifecycle-viewmodel-savedstate-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/099fa84de9a3b9c91d7f9d4a61afe2f1/transformed/lifecycle-viewmodel-savedstate-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fc422dc8e8feabc5097f563721b621f0/transformed/lifecycle-viewmodel-savedstate-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -234,11 +234,10 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="androidx.core:core-ktx:1.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ae19debad4a86697d2c8cad0824844da/transformed/core-ktx-1.2.0/jars/classes.jar"
-      resolved="androidx.core:core-ktx:1.2.0"
-      provided="true"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ae19debad4a86697d2c8cad0824844da/transformed/core-ktx-1.2.0"
+      name="androidx.core:core-ktx:1.13.1@aar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6278db2b307bab141cd37d6574abed8c/transformed/core-ktx-1.13.1/jars/classes.jar"
+      resolved="androidx.core:core-ktx:1.13.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6278db2b307bab141cd37d6574abed8c/transformed/core-ktx-1.13.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -249,9 +248,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.viewpager:viewpager:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9c03e2381136b6831b281ff9bd73cf46/transformed/viewpager-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/644d9be0a77817fa23313dd345df57b5/transformed/viewpager-1.0.0/jars/classes.jar"
       resolved="androidx.viewpager:viewpager:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9c03e2381136b6831b281ff9bd73cf46/transformed/viewpager-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/644d9be0a77817fa23313dd345df57b5/transformed/viewpager-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -261,11 +260,10 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="androidx.customview:customview:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/21a45a15f5191e49ad41c7805a88b8dc/transformed/customview-1.0.0/jars/classes.jar"
-      resolved="androidx.customview:customview:1.0.0"
-      provided="true"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/21a45a15f5191e49ad41c7805a88b8dc/transformed/customview-1.0.0"
+      name="androidx.customview:customview:1.1.0@aar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/be8c0f9f5f91a2d8c7b9317dba93f03f/transformed/customview-1.1.0/jars/classes.jar"
+      resolved="androidx.customview:customview:1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/be8c0f9f5f91a2d8c7b9317dba93f03f/transformed/customview-1.1.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -276,9 +274,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.core:core:1.13.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/jars/classes.jar"
       resolved="androidx.core:core:1.13.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -289,9 +287,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-runtime:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/21147ec51953fdf1826caf13610476e6/transformed/lifecycle-runtime-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e850c3f6cedba0df1ff947b2492034f3/transformed/lifecycle-runtime-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-runtime:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/21147ec51953fdf1826caf13610476e6/transformed/lifecycle-runtime-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e850c3f6cedba0df1ff947b2492034f3/transformed/lifecycle-runtime-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -302,9 +300,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-process:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-process:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -323,9 +321,9 @@
       resolved="androidx.lifecycle:lifecycle-common:2.7.0"/>
   <library
       name="androidx.window:window:1.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/jars/classes.jar"
       resolved="androidx.window:window:1.2.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -336,9 +334,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.window:window-java:1.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/169afe10ff2f01272b137719d317fb78/transformed/window-java-1.2.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/18770a5e06ceece2904973fec50b7bfe/transformed/window-java-1.2.0/jars/classes.jar"
       resolved="androidx.window:window-java:1.2.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/169afe10ff2f01272b137719d317fb78/transformed/window-java-1.2.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/18770a5e06ceece2904973fec50b7bfe/transformed/window-java-1.2.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -349,9 +347,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.annotation:annotation-experimental:1.4.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/42f0716bc5eb5cfd74a36d49e6ecb34d/transformed/annotation-experimental-1.4.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/aaaadc0b205d4a4c3a84a7d8a2247e5e/transformed/annotation-experimental-1.4.0/jars/classes.jar"
       resolved="androidx.annotation:annotation-experimental:1.4.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/42f0716bc5eb5cfd74a36d49e6ecb34d/transformed/annotation-experimental-1.4.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/aaaadc0b205d4a4c3a84a7d8a2247e5e/transformed/annotation-experimental-1.4.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -362,9 +360,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.savedstate:savedstate:1.2.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/24758a678aa8332920bcf354b2fc92ed/transformed/savedstate-1.2.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e14324ec6714ac84fc4516b1dc95899c/transformed/savedstate-1.2.1/jars/classes.jar"
       resolved="androidx.savedstate:savedstate:1.2.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/24758a678aa8332920bcf354b2fc92ed/transformed/savedstate-1.2.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e14324ec6714ac84fc4516b1dc95899c/transformed/savedstate-1.2.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -375,9 +373,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.arch.core:core-runtime:2.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/676a00389ce276119408c3f879732fa3/transformed/core-runtime-2.2.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/36bffeab54d1cf4ea355ae4bfdeb07e6/transformed/core-runtime-2.2.0/jars/classes.jar"
       resolved="androidx.arch.core:core-runtime:2.2.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/676a00389ce276119408c3f879732fa3/transformed/core-runtime-2.2.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/36bffeab54d1cf4ea355ae4bfdeb07e6/transformed/core-runtime-2.2.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -392,9 +390,9 @@
       resolved="androidx.arch.core:core-common:2.2.0"/>
   <library
       name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/cd2c59b851083326f63879acf62ab040/transformed/versionedparcelable-1.1.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fec918b9ee4089849652a10e37192bee/transformed/versionedparcelable-1.1.1/jars/classes.jar"
       resolved="androidx.versionedparcelable:versionedparcelable:1.1.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/cd2c59b851083326f63879acf62ab040/transformed/versionedparcelable-1.1.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fec918b9ee4089849652a10e37192bee/transformed/versionedparcelable-1.1.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -404,24 +402,21 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="androidx.collection:collection:1.1.0@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/androidx.collection/collection/1.1.0/1f27220b47669781457de0d600849a5de0e89909/collection-1.1.0.jar"
-      resolved="androidx.collection:collection:1.1.0"
-      provided="true"/>
+      name="androidx.collection:collection:1.2.0@jar"
+      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/androidx.collection/collection/1.2.0/34dbc21d203cc4d4d623ac572a21acd4ccd716af/collection-1.2.0.jar"
+      resolved="androidx.collection:collection:1.2.0"/>
   <library
       name="androidx.annotation:annotation-jvm:1.8.1@jar"
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/androidx.annotation/annotation-jvm/1.8.1/b8a16fe526014b7941c1debaccaf9c5153692dbb/annotation-jvm-1.8.1.jar"
       resolved="androidx.annotation:annotation-jvm:1.8.1"/>
   <library
-      name="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.7.1/c2d86b569f10b7fc7e28d3f50c0eed97897d77a7/kotlinx-coroutines-android-1.7.1.jar"
-      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1"
-      provided="true"/>
+      name="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar"
+      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.7.3/38d9cad3a0b03a10453b56577984bdeb48edeed5/kotlinx-coroutines-android-1.7.3.jar"
+      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"/>
   <library
-      name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.1@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.7.1/63a0779cf668e2a47d13fda7c3b0c4f8dc7762f4/kotlinx-coroutines-core-jvm-1.7.1.jar"
-      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.1"
-      provided="true"/>
+      name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar"
+      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.7.3/2b09627576f0989a436a00a4a54b55fa5026fb86/kotlinx-coroutines-core-jvm-1.7.3.jar"
+      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3"/>
   <library
       name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.20@jar"
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.8.20/73576ddf378c5b4f1f6b449fe6b119b8183fc078/kotlin-stdlib-jdk8-1.8.20.jar"
@@ -431,9 +426,9 @@
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.8.20/3aa51faf20aae8b31e1a4bc54f8370673d7b7df4/kotlin-stdlib-jdk7-1.8.20.jar"
       resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.20"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib:2.4.0@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.4.0/4e9f4b531dce5c7dee58ed2de9a8b9a763c8dc6c/kotlin-stdlib-2.4.0.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib:2.4.0"/>
+      name="org.jetbrains.kotlin:kotlin-stdlib:2.3.20@jar"
+      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.3.20/ed866de74ad3d49086a27bbd75952cd186479436/kotlin-stdlib-2.3.20.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib:2.3.20"/>
   <library
       name="io.flutter:armeabi_v7a_release:1.0.0-deb287481e3ce9468f3434937ced4240a70539ca@jar"
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/io.flutter/armeabi_v7a_release/1.0.0-deb287481e3ce9468f3434937ced4240a70539ca/132584fc3b83a3884ed0eabf633c170436d1e21c/armeabi_v7a_release-1.0.0-deb287481e3ce9468f3434937ced4240a70539ca.jar"
@@ -451,10 +446,23 @@
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/23.0.0/8cc20c07506ec18e0834947b84a864bfc094484e/annotations-23.0.0.jar"
       resolved="org.jetbrains:annotations:23.0.0"/>
   <library
+      name="androidx.startup:startup-runtime:1.1.1@aar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/51561ee1001c66ce1882b1f7232170a0/transformed/startup-runtime-1.1.1/jars/classes.jar"
+      resolved="androidx.startup:startup-runtime:1.1.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/51561ee1001c66ce1882b1f7232170a0/transformed/startup-runtime-1.1.1"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="androidx.tracing:tracing:1.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b29c715449f72c435a349c85b3d0caea/transformed/tracing-1.2.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fc38def0ba00632a3e2d0a5a06640606/transformed/tracing-1.2.0/jars/classes.jar"
       resolved="androidx.tracing:tracing:1.2.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b29c715449f72c435a349c85b3d0caea/transformed/tracing-1.2.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fc38def0ba00632a3e2d0a5a06640606/transformed/tracing-1.2.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -465,9 +473,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="com.getkeepsafe.relinker:relinker:1.4.5@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ae01703e8ba44e569ce5fa8506d081c/transformed/relinker-1.4.5/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3151d93923a802df9911874dc30dc937/transformed/relinker-1.4.5/jars/classes.jar"
       resolved="com.getkeepsafe.relinker:relinker:1.4.5"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ae01703e8ba44e569ce5fa8506d081c/transformed/relinker-1.4.5"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3151d93923a802df9911874dc30dc937/transformed/relinker-1.4.5"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -478,22 +486,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.exifinterface:exifinterface:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9742857b1348f9280538369b25be1b97/transformed/exifinterface-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11b15e486a668a66b444bf35d2dd3b9d/transformed/exifinterface-1.4.1/jars/classes.jar"
       resolved="androidx.exifinterface:exifinterface:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9742857b1348f9280538369b25be1b97/transformed/exifinterface-1.4.1"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
-      name="androidx.startup:startup-runtime:1.1.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9b4102c231a6286b797c71f1baf13a34/transformed/startup-runtime-1.1.1/jars/classes.jar"
-      resolved="androidx.startup:startup-runtime:1.1.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9b4102c231a6286b797c71f1baf13a34/transformed/startup-runtime-1.1.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11b15e486a668a66b444bf35d2dd3b9d/transformed/exifinterface-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -508,9 +503,9 @@
       resolved="org.jspecify:jspecify:1.0.0"/>
   <library
       name="androidx.media:media:1.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f01ca8fe8a63cc1994d325f018f6c439/transformed/media-1.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0d83be83cdc69fe079efdf00b68727e3/transformed/media-1.7.0/jars/classes.jar"
       resolved="androidx.media:media:1.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f01ca8fe8a63cc1994d325f018f6c439/transformed/media-1.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0d83be83cdc69fe079efdf00b68727e3/transformed/media-1.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -521,9 +516,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.preference:preference:1.2.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ff37497f57f986e9fcda827e43928a1/transformed/preference-1.2.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eceea235be042316a4f5091fb0e8d37c/transformed/preference-1.2.1/jars/classes.jar"
       resolved="androidx.preference:preference:1.2.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8ff37497f57f986e9fcda827e43928a1/transformed/preference-1.2.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eceea235be042316a4f5091fb0e8d37c/transformed/preference-1.2.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -534,9 +529,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.appcompat:appcompat:1.1.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/01d73e21b5ac055796b537161fdf2798/transformed/appcompat-1.1.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/bd806b1ab25c235c267a69fd4c93e7a7/transformed/appcompat-1.1.0/jars/classes.jar"
       resolved="androidx.appcompat:appcompat:1.1.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/01d73e21b5ac055796b537161fdf2798/transformed/appcompat-1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/bd806b1ab25c235c267a69fd4c93e7a7/transformed/appcompat-1.1.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -547,9 +542,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.fragment:fragment-ktx:1.7.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/185ef1024ea4b8de184f956b833ac40a/transformed/fragment-ktx-1.7.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b5a1b93f9e98fd997a91440f57e47231/transformed/fragment-ktx-1.7.1/jars/classes.jar"
       resolved="androidx.fragment:fragment-ktx:1.7.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/185ef1024ea4b8de184f956b833ac40a/transformed/fragment-ktx-1.7.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b5a1b93f9e98fd997a91440f57e47231/transformed/fragment-ktx-1.7.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -560,9 +555,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.recyclerview:recyclerview:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3011132ea42f1fb8e17f3e414b357516/transformed/recyclerview-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ed65b37b18efd0da33d331bd2e6a7538/transformed/recyclerview-1.0.0/jars/classes.jar"
       resolved="androidx.recyclerview:recyclerview:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3011132ea42f1fb8e17f3e414b357516/transformed/recyclerview-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ed65b37b18efd0da33d331bd2e6a7538/transformed/recyclerview-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -573,9 +568,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.legacy:legacy-support-core-ui:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d97e8ebe169ff71bb8d8cd24b20c4b5c/transformed/legacy-support-core-ui-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0407e54971fbe878cf6808de22be9e9b/transformed/legacy-support-core-ui-1.0.0/jars/classes.jar"
       resolved="androidx.legacy:legacy-support-core-ui:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d97e8ebe169ff71bb8d8cd24b20c4b5c/transformed/legacy-support-core-ui-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0407e54971fbe878cf6808de22be9e9b/transformed/legacy-support-core-ui-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -586,9 +581,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.legacy:legacy-support-core-utils:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8a6d667d2630f9b6dbacca3965bc2a96/transformed/legacy-support-core-utils-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1a585f046d2996a984adee803d70335a/transformed/legacy-support-core-utils-1.0.0/jars/classes.jar"
       resolved="androidx.legacy:legacy-support-core-utils:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8a6d667d2630f9b6dbacca3965bc2a96/transformed/legacy-support-core-utils-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1a585f046d2996a984adee803d70335a/transformed/legacy-support-core-utils-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -599,9 +594,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.activity:activity-ktx:1.8.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0414b4107b329aa6a3f0ac1999b0bac8/transformed/activity-ktx-1.8.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e4842990f144d38c808b7da6cf0300ce/transformed/activity-ktx-1.8.1/jars/classes.jar"
       resolved="androidx.activity:activity-ktx:1.8.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0414b4107b329aa6a3f0ac1999b0bac8/transformed/activity-ktx-1.8.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e4842990f144d38c808b7da6cf0300ce/transformed/activity-ktx-1.8.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -612,9 +607,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-runtime-ktx:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/bcc68d1ab496af16533338b8f60a5b3c/transformed/lifecycle-runtime-ktx-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b0cf4461ac7e92b4bdd0508b88a7f9cb/transformed/lifecycle-runtime-ktx-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/bcc68d1ab496af16533338b8f60a5b3c/transformed/lifecycle-runtime-ktx-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b0cf4461ac7e92b4bdd0508b88a7f9cb/transformed/lifecycle-runtime-ktx-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -625,9 +620,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fa680d2c652d4a5fee36a8142f0bc47f/transformed/lifecycle-viewmodel-ktx-2.7.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11172408c208b649d5d453df52c0d5fe/transformed/lifecycle-viewmodel-ktx-2.7.0/jars/classes.jar"
       resolved="androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/fa680d2c652d4a5fee36a8142f0bc47f/transformed/lifecycle-viewmodel-ktx-2.7.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11172408c208b649d5d453df52c0d5fe/transformed/lifecycle-viewmodel-ktx-2.7.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -638,22 +633,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.savedstate:savedstate-ktx:1.2.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/87fc5e4fc92461a94440f9843cba1254/transformed/savedstate-ktx-1.2.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9f7cc9705f5f52d24173b56341a38752/transformed/savedstate-ktx-1.2.1/jars/classes.jar"
       resolved="androidx.savedstate:savedstate-ktx:1.2.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/87fc5e4fc92461a94440f9843cba1254/transformed/savedstate-ktx-1.2.1"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
-      name="androidx.core:core-ktx:1.13.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a43546c48c53a32da39ad0ea3035f870/transformed/core-ktx-1.13.1/jars/classes.jar"
-      resolved="androidx.core:core-ktx:1.13.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a43546c48c53a32da39ad0ea3035f870/transformed/core-ktx-1.13.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9f7cc9705f5f52d24173b56341a38752/transformed/savedstate-ktx-1.2.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -664,9 +646,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-extractor:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9dfce2aa40fe2b7d4fb7c24ac694fda9/transformed/media3-extractor-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/573ea4ddc672bd27260f39d8f601ffea/transformed/media3-extractor-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-extractor:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9dfce2aa40fe2b7d4fb7c24ac694fda9/transformed/media3-extractor-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/573ea4ddc672bd27260f39d8f601ffea/transformed/media3-extractor-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -677,9 +659,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-container:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e01e1342fd141e3a7da939346ba32d48/transformed/media3-container-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/791bf7a1b1deffb64e3e79c2c75eb1ed/transformed/media3-container-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-container:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e01e1342fd141e3a7da939346ba32d48/transformed/media3-container-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/791bf7a1b1deffb64e3e79c2c75eb1ed/transformed/media3-container-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -690,9 +672,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-datasource:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3118fb1311d8ef10fd79962560d142a0/transformed/media3-datasource-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a0a59161f9c6a8477b32f47466948cdf/transformed/media3-datasource-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-datasource:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3118fb1311d8ef10fd79962560d142a0/transformed/media3-datasource-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a0a59161f9c6a8477b32f47466948cdf/transformed/media3-datasource-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -703,9 +685,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-decoder:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6e3ee9d92b0d4dc330bb1b04c6a2bf6f/transformed/media3-decoder-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8d73adebfd99e9f957acf6669cde0778/transformed/media3-decoder-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-decoder:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/6e3ee9d92b0d4dc330bb1b04c6a2bf6f/transformed/media3-decoder-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8d73adebfd99e9f957acf6669cde0778/transformed/media3-decoder-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -716,9 +698,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-database:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/817523bd01ab9ba7e73d43737cf80450/transformed/media3-database-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/086dba53ae45e779465b71e82fd48462/transformed/media3-database-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-database:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/817523bd01ab9ba7e73d43737cf80450/transformed/media3-database-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/086dba53ae45e779465b71e82fd48462/transformed/media3-database-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -729,9 +711,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-common:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0a8408c5ccd4a9d404a40fcc5e029d7c/transformed/media3-common-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/7771a5289db985e9274e672b58d3ae67/transformed/media3-common-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-common:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0a8408c5ccd4a9d404a40fcc5e029d7c/transformed/media3-common-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/7771a5289db985e9274e672b58d3ae67/transformed/media3-common-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -742,9 +724,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-exoplayer-dash:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ad95869a88626f87fc00f0742abde448/transformed/media3-exoplayer-dash-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a6f6b890fa8bc032b72d0d3fdb0e13b4/transformed/media3-exoplayer-dash-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-exoplayer-dash:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ad95869a88626f87fc00f0742abde448/transformed/media3-exoplayer-dash-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a6f6b890fa8bc032b72d0d3fdb0e13b4/transformed/media3-exoplayer-dash-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -755,9 +737,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-exoplayer-hls:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/96bf659ba144d95480a0f56f50a5e2fb/transformed/media3-exoplayer-hls-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ffd61d2d8dd389cb50b9da0ddeb6d161/transformed/media3-exoplayer-hls-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-exoplayer-hls:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/96bf659ba144d95480a0f56f50a5e2fb/transformed/media3-exoplayer-hls-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ffd61d2d8dd389cb50b9da0ddeb6d161/transformed/media3-exoplayer-hls-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -768,9 +750,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-exoplayer-smoothstreaming:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/87ddc4df2ec2cca047adbc253217e7c5/transformed/media3-exoplayer-smoothstreaming-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a11e16593908bba8893b485feb9591ac/transformed/media3-exoplayer-smoothstreaming-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-exoplayer-smoothstreaming:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/87ddc4df2ec2cca047adbc253217e7c5/transformed/media3-exoplayer-smoothstreaming-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/a11e16593908bba8893b485feb9591ac/transformed/media3-exoplayer-smoothstreaming-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -781,9 +763,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.media3:media3-exoplayer:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0a7aa5f4fefb8f9c248e53b78def0365/transformed/media3-exoplayer-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f81046ff1544e1989f525632c4f9abee/transformed/media3-exoplayer-1.4.1/jars/classes.jar"
       resolved="androidx.media3:media3-exoplayer:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0a7aa5f4fefb8f9c248e53b78def0365/transformed/media3-exoplayer-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/f81046ff1544e1989f525632c4f9abee/transformed/media3-exoplayer-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -794,9 +776,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.slidingpanelayout:slidingpanelayout:1.2.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/dbf382485cedbea82a05027c1955eeb3/transformed/slidingpanelayout-1.2.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/69bb88a9135327f3255a8d57e84ec412/transformed/slidingpanelayout-1.2.0/jars/classes.jar"
       resolved="androidx.slidingpanelayout:slidingpanelayout:1.2.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/dbf382485cedbea82a05027c1955eeb3/transformed/slidingpanelayout-1.2.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/69bb88a9135327f3255a8d57e84ec412/transformed/slidingpanelayout-1.2.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -807,9 +789,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.appcompat:appcompat-resources:1.1.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/61070a8fba1ea80b750da88bf19a92c7/transformed/appcompat-resources-1.1.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3c9eedf625cd31ec9a7d0216213e4e16/transformed/appcompat-resources-1.1.0/jars/classes.jar"
       resolved="androidx.appcompat:appcompat-resources:1.1.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/61070a8fba1ea80b750da88bf19a92c7/transformed/appcompat-resources-1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3c9eedf625cd31ec9a7d0216213e4e16/transformed/appcompat-resources-1.1.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -820,9 +802,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.drawerlayout:drawerlayout:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/33205348bc67036e78f8c2342772ca91/transformed/drawerlayout-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/94caf52554a141f37224a936fcf02a11/transformed/drawerlayout-1.0.0/jars/classes.jar"
       resolved="androidx.drawerlayout:drawerlayout:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/33205348bc67036e78f8c2342772ca91/transformed/drawerlayout-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/94caf52554a141f37224a936fcf02a11/transformed/drawerlayout-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -833,22 +815,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.coordinatorlayout:coordinatorlayout:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d3211d1d7fd67f776447c54fdd47dad2/transformed/coordinatorlayout-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11d1106fd315253bcf19d1befd22cbc0/transformed/coordinatorlayout-1.0.0/jars/classes.jar"
       resolved="androidx.coordinatorlayout:coordinatorlayout:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d3211d1d7fd67f776447c54fdd47dad2/transformed/coordinatorlayout-1.0.0"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
-      name="androidx.customview:customview:1.1.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3527fd5c9b1735c136ab64fdeadc3bd3/transformed/customview-1.1.0/jars/classes.jar"
-      resolved="androidx.customview:customview:1.1.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/3527fd5c9b1735c136ab64fdeadc3bd3/transformed/customview-1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/11d1106fd315253bcf19d1befd22cbc0/transformed/coordinatorlayout-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -859,9 +828,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.transition:transition:1.4.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/cf9664ba8c5c4414650bee773713e7bb/transformed/transition-1.4.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8c367af68ca64105029b769bdd1de184/transformed/transition-1.4.1/jars/classes.jar"
       resolved="androidx.transition:transition:1.4.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/cf9664ba8c5c4414650bee773713e7bb/transformed/transition-1.4.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/8c367af68ca64105029b769bdd1de184/transformed/transition-1.4.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -872,9 +841,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.vectordrawable:vectordrawable-animated:1.1.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/71c0812dec9cd2ec0f2c15b89c0658ec/transformed/vectordrawable-animated-1.1.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0cae973a59c6416fe9f8a66a843094e7/transformed/vectordrawable-animated-1.1.0/jars/classes.jar"
       resolved="androidx.vectordrawable:vectordrawable-animated:1.1.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/71c0812dec9cd2ec0f2c15b89c0658ec/transformed/vectordrawable-animated-1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/0cae973a59c6416fe9f8a66a843094e7/transformed/vectordrawable-animated-1.1.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -885,9 +854,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.vectordrawable:vectordrawable:1.1.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/17f520752ed56d5cdd16d2219a6bb5af/transformed/vectordrawable-1.1.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/aef5b4d1387b78c945bf1f766ae2735e/transformed/vectordrawable-1.1.0/jars/classes.jar"
       resolved="androidx.vectordrawable:vectordrawable:1.1.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/17f520752ed56d5cdd16d2219a6bb5af/transformed/vectordrawable-1.1.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/aef5b4d1387b78c945bf1f766ae2735e/transformed/vectordrawable-1.1.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -898,9 +867,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.swiperefreshlayout:swiperefreshlayout:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5c1b69020e77f61a04debc0d595e19ad/transformed/swiperefreshlayout-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b2bd7b5ce1a094d78e25b9fd3235241a/transformed/swiperefreshlayout-1.0.0/jars/classes.jar"
       resolved="androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5c1b69020e77f61a04debc0d595e19ad/transformed/swiperefreshlayout-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/b2bd7b5ce1a094d78e25b9fd3235241a/transformed/swiperefreshlayout-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -911,9 +880,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.asynclayoutinflater:asynclayoutinflater:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/adb99d1fe9cf8d7deb77e3c54e2b3ddb/transformed/asynclayoutinflater-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/51b2b60c0eea452160bfc4b24b028448/transformed/asynclayoutinflater-1.0.0/jars/classes.jar"
       resolved="androidx.asynclayoutinflater:asynclayoutinflater:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/adb99d1fe9cf8d7deb77e3c54e2b3ddb/transformed/asynclayoutinflater-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/51b2b60c0eea452160bfc4b24b028448/transformed/asynclayoutinflater-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -932,9 +901,9 @@
       resolved="androidx.datastore:datastore-preferences-proto:1.1.7"/>
   <library
       name="androidx.datastore:datastore-preferences-core-android:1.1.7@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/86983a852aebb7d8bf3782e411df221b/transformed/datastore-preferences-core-release/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4cf09b0ba57f75ba6eb73871fb11d804/transformed/datastore-preferences-core-release/jars/classes.jar"
       resolved="androidx.datastore:datastore-preferences-core-android:1.1.7"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/86983a852aebb7d8bf3782e411df221b/transformed/datastore-preferences-core-release"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4cf09b0ba57f75ba6eb73871fb11d804/transformed/datastore-preferences-core-release"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -949,9 +918,9 @@
       resolved="androidx.datastore:datastore-core-okio-jvm:1.1.7"/>
   <library
       name="androidx.datastore:datastore-core-android:1.1.7@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e44eb4329d641b304e8baee8291c9234/transformed/datastore-core-release/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4616d84967740d38384bbdded42dec45/transformed/datastore-core-release/jars/classes.jar"
       resolved="androidx.datastore:datastore-core-android:1.1.7"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/e44eb4329d641b304e8baee8291c9234/transformed/datastore-core-release"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/4616d84967740d38384bbdded42dec45/transformed/datastore-core-release"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -962,9 +931,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.datastore:datastore-preferences-android:1.1.7@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/45d3b9b1cb31a4ffba6587fb62808701/transformed/datastore-preferences-release/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/57855d289896789eb00d1a39ecded520/transformed/datastore-preferences-release/jars/classes.jar"
       resolved="androidx.datastore:datastore-preferences-android:1.1.7"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/45d3b9b1cb31a4ffba6587fb62808701/transformed/datastore-preferences-release"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/57855d289896789eb00d1a39ecded520/transformed/datastore-preferences-release"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -975,9 +944,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.datastore:datastore-android:1.1.7@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ef9286cfd2c65fd2412534ebfb130ef9/transformed/datastore-release/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/62edd7ea524a44203b4a6825cad6419c/transformed/datastore-release/jars/classes.jar"
       resolved="androidx.datastore:datastore-android:1.1.7"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/ef9286cfd2c65fd2412534ebfb130ef9/transformed/datastore-release"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/62edd7ea524a44203b4a6825cad6419c/transformed/datastore-release"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -988,9 +957,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.interpolator:interpolator:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/edd921f3d079cdfa25fa38fcddc7d994/transformed/interpolator-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/24b6c0fca2d315728bc5f4ff8c10ca7c/transformed/interpolator-1.0.0/jars/classes.jar"
       resolved="androidx.interpolator:interpolator:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/edd921f3d079cdfa25fa38fcddc7d994/transformed/interpolator-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/24b6c0fca2d315728bc5f4ff8c10ca7c/transformed/interpolator-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1001,9 +970,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.profileinstaller:profileinstaller:1.3.1@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/jars/classes.jar"
       resolved="androidx.profileinstaller:profileinstaller:1.3.1"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1017,14 +986,10 @@
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/androidx.collection/collection-ktx/1.1.0/f807b2f366f7b75142a67d2f3c10031065b5168/collection-ktx-1.1.0.jar"
       resolved="androidx.collection:collection-ktx:1.1.0"/>
   <library
-      name="androidx.collection:collection:1.2.0@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/androidx.collection/collection/1.2.0/34dbc21d203cc4d4d623ac572a21acd4ccd716af/collection-1.2.0.jar"
-      resolved="androidx.collection:collection:1.2.0"/>
-  <library
       name="androidx.cursoradapter:cursoradapter:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/044b3bfb291122cb5d839f7bb5f457ef/transformed/cursoradapter-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5ecd777baca683221186884f4ef28342/transformed/cursoradapter-1.0.0/jars/classes.jar"
       resolved="androidx.cursoradapter:cursoradapter:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/044b3bfb291122cb5d839f7bb5f457ef/transformed/cursoradapter-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/5ecd777baca683221186884f4ef28342/transformed/cursoradapter-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1039,9 +1004,9 @@
       resolved="androidx.concurrent:concurrent-futures:1.1.0"/>
   <library
       name="androidx.window.extensions.core:core:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/351270bffe273cd281381403a975b48c/transformed/core-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d11af5f324966d6db5da79d91de4aade/transformed/core-1.0.0/jars/classes.jar"
       resolved="androidx.window.extensions.core:core:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/351270bffe273cd281381403a975b48c/transformed/core-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/d11af5f324966d6db5da79d91de4aade/transformed/core-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1052,9 +1017,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.documentfile:documentfile:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/336483228e0435006a40d56cae8d6634/transformed/documentfile-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/023aaffd8b9764a8c7e239e81421a3d6/transformed/documentfile-1.0.0/jars/classes.jar"
       resolved="androidx.documentfile:documentfile:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/336483228e0435006a40d56cae8d6634/transformed/documentfile-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/023aaffd8b9764a8c7e239e81421a3d6/transformed/documentfile-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1065,9 +1030,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.localbroadcastmanager:localbroadcastmanager:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eaec30f7aa2286e29e53547b46f28aab/transformed/localbroadcastmanager-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1de38cd860ed770d322b3f3377b918b7/transformed/localbroadcastmanager-1.0.0/jars/classes.jar"
       resolved="androidx.localbroadcastmanager:localbroadcastmanager:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/eaec30f7aa2286e29e53547b46f28aab/transformed/localbroadcastmanager-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/1de38cd860ed770d322b3f3377b918b7/transformed/localbroadcastmanager-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1078,9 +1043,9 @@
       proguardRules="proguard.txt"/>
   <library
       name="androidx.print:print:1.0.0@aar"
-      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/944a2efc24e2e0f77326922d335f8a70/transformed/print-1.0.0/jars/classes.jar"
+      jars="/home/pharmaracist/.gradle/caches/9.3.1/transforms/389c4926c9568cbc23e705517b386899/transformed/print-1.0.0/jars/classes.jar"
       resolved="androidx.print:print:1.0.0"
-      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/944a2efc24e2e0f77326922d335f8a70/transformed/print-1.0.0"
+      folder="/home/pharmaracist/.gradle/caches/9.3.1/transforms/389c4926c9568cbc23e705517b386899/transformed/print-1.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -1093,14 +1058,6 @@
       name="com.squareup.okio:okio-jvm:3.4.0@jar"
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.4.0/4e8bd78a52ab935ce383d0092646922154295e54/okio-jvm-3.4.0.jar"
       resolved="com.squareup.okio:okio-jvm:3.4.0"/>
-  <library
-      name="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.7.3/38d9cad3a0b03a10453b56577984bdeb48edeed5/kotlinx-coroutines-android-1.7.3.jar"
-      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"/>
-  <library
-      name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar"
-      jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.7.3/2b09627576f0989a436a00a4a54b55fa5026fb86/kotlinx-coroutines-core-jvm-1.7.3.jar"
-      resolved="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3"/>
   <library
       name="org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.22@jar"
       jars="/home/pharmaracist/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-parcelize-runtime/1.9.22/de4a21d6560cadd035c69ba3af3ad1afecc95299/kotlin-parcelize-runtime-1.9.22.jar"

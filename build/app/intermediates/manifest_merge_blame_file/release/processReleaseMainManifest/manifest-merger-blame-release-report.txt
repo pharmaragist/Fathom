@@ -1,241 +1,233 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-3    package="com.pharmaracist.fathom"
+3    package="com.example.fathom"
 4    android:versionCode="1"
 5    android:versionName="1.0.0" >
 6
 7    <uses-sdk
-7-->INJECTED
 8        android:minSdkVersion="24"
-8-->INJECTED
 9        android:targetSdkVersion="36" />
-9-->INJECTED
 10
-11    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-11-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:2:5-74
-11-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:2:22-72
-12    <uses-permission
-12-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:3:5-106
-13        android:name="android.permission.READ_EXTERNAL_STORAGE"
-13-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:3:22-77
-14        android:maxSdkVersion="32" />
-14-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:3:78-104
-15    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-15-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:4:5-79
-15-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:4:22-77
-16    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-16-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:5:5-76
-16-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:5:22-74
-17    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-17-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:6:5-91
-17-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:6:22-89
-18    <uses-permission android:name="android.permission.WAKE_LOCK" />
-18-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:7:5-67
-18-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:7:22-65
-19    <!--
-20         Required to query activities that can process text, see:
-21         https://developer.android.com/training/package-visibility and
-22         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-23
-24         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin.
-25    -->
-26    <queries>
-26-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:61:5-66:15
-27        <intent>
-27-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:62:9-65:18
-28            <action android:name="android.intent.action.PROCESS_TEXT" />
-28-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:63:13-72
-28-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:63:21-70
-29
-30            <data android:mimeType="text/plain" />
-30-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:64:13-50
-30-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:64:19-48
-31        </intent>
-32    </queries>
-33
-34    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-34-->[androidx.media3:media3-common:1.4.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/0a8408c5ccd4a9d404a40fcc5e029d7c/transformed/media3-common-1.4.1/AndroidManifest.xml:22:5-79
-34-->[androidx.media3:media3-common:1.4.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/0a8408c5ccd4a9d404a40fcc5e029d7c/transformed/media3-common-1.4.1/AndroidManifest.xml:22:22-76
-35
-36    <permission
-36-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
-37        android:name="com.pharmaracist.fathom.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-37-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
-38        android:protectionLevel="signature" />
-38-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
-39
-40    <uses-permission android:name="com.pharmaracist.fathom.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-40-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
-40-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
-41
-42    <application
-42-->INJECTED
-43        android:name="android.app.Application"
-43-->INJECTED
-44        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-44-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/36b2cade356a97d2665ce9d4675dfa9b/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
-45        android:extractNativeLibs="false"
-45-->INJECTED
-46        android:icon="@mipmap/ic_launcher"
-46-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:11:9-43
-47        android:label="Fathom" >
-47-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:9:9-31
-48        <activity
-48-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:12:9-33:20
-49            android:name="com.pharmaracist.fathom.MainActivity"
-49-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:13:13-41
-50            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-50-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:18:13-163
-51            android:exported="true"
-51-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:14:13-36
-52            android:hardwareAccelerated="true"
-52-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:19:13-47
-53            android:launchMode="singleTop"
-53-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:15:13-43
-54            android:taskAffinity=""
-54-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:16:13-36
-55            android:theme="@style/LaunchTheme"
-55-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:17:13-47
-56            android:windowSoftInputMode="adjustResize" >
-56-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:20:13-55
-57
-58            <!--
-59                 Specifies an Android theme to apply to this Activity as soon as
-60                 the Android process has started. This theme is visible to the user
-61                 while the Flutter UI initializes. After that, this theme continues
-62                 to determine the Window background behind the Flutter UI.
-63            -->
-64            <meta-data
-64-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:25:13-28:17
-65                android:name="io.flutter.embedding.android.NormalTheme"
-65-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:26:15-70
-66                android:resource="@style/NormalTheme" />
-66-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:27:15-52
-67
-68            <intent-filter>
-68-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:29:13-32:29
-69                <action android:name="android.intent.action.MAIN" />
-69-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:30:17-68
-69-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:30:25-66
+11    <!-- Audio/media permissions -->
+12    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+12-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:5:5-75
+12-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:5:22-72
+13    <uses-permission
+13-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:6:5-8:38
+14        android:name="android.permission.READ_EXTERNAL_STORAGE"
+14-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:7:9-64
+15        android:maxSdkVersion="32" />
+15-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:8:9-35
+16
+17    <!-- Required for on_audio_query / audio_service on Android 13+ -->
+18    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+18-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:11:5-77
+18-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:11:22-74
+19    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+19-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:12:5-92
+19-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:12:22-89
+20    <uses-permission android:name="android.permission.WAKE_LOCK" />
+20-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:13:5-68
+20-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:13:22-65
+21
+22    <!-- Needed for Android 14+ foreground media playback -->
+23    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+23-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:16:5-77
+23-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:16:22-74
+24
+25    <queries>
+25-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:66:5-75:15
+26        <intent>
+26-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:67:9-70:18
+27            <action android:name="android.intent.action.PROCESS_TEXT" />
+27-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:68:13-72
+27-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:68:21-70
+28
+29            <data android:mimeType="text/plain" />
+29-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:69:13-50
+29-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:69:19-48
+30        </intent>
+31        <!-- Allows audio_service to query media apps -->
+32        <intent>
+32-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:72:9-74:18
+33            <action android:name="android.intent.action.MEDIA_BUTTON" />
+33-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:73:13-73
+33-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:73:21-70
+34        </intent>
+35    </queries>
+36
+37    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+37-->[androidx.media3:media3-common:1.4.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/7771a5289db985e9274e672b58d3ae67/transformed/media3-common-1.4.1/AndroidManifest.xml:22:5-79
+37-->[androidx.media3:media3-common:1.4.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/7771a5289db985e9274e672b58d3ae67/transformed/media3-common-1.4.1/AndroidManifest.xml:22:22-76
+38
+39    <permission
+39-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
+40        android:name="com.example.fathom.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+40-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
+41        android:protectionLevel="signature" />
+41-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
+42
+43    <uses-permission android:name="com.example.fathom.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+43-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
+43-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
+44
+45    <application
+46        android:name="android.app.Application"
+46-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:20:9-42
+47        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+47-->[androidx.core:core:1.13.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/6f60ce18eb13fca0e7f9bac3cd16fc62/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
+48        android:extractNativeLibs="false"
+49        android:icon="@mipmap/ic_launcher"
+49-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:21:9-43
+50        android:label="fathom" >
+50-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:19:9-31
+51        <activity
+51-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:22:9-39:20
+52            android:name="com.example.fathom.MainActivity"
+52-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:23:13-41
+53            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+53-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:28:13-163
+54            android:exported="true"
+54-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:24:13-36
+55            android:hardwareAccelerated="true"
+55-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:29:13-47
+56            android:launchMode="singleTop"
+56-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:25:13-43
+57            android:taskAffinity=""
+57-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:26:13-36
+58            android:theme="@style/LaunchTheme"
+58-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:27:13-47
+59            android:windowSoftInputMode="adjustResize" >
+59-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:30:13-55
+60            <meta-data
+60-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:31:13-34:17
+61                android:name="io.flutter.embedding.android.NormalTheme"
+61-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:32:15-70
+62                android:resource="@style/NormalTheme" />
+62-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:33:15-52
+63
+64            <intent-filter>
+64-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:35:13-38:29
+65                <action android:name="android.intent.action.MAIN" />
+65-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:36:17-68
+65-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:36:25-66
+66
+67                <category android:name="android.intent.category.LAUNCHER" />
+67-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:37:17-76
+67-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:37:27-74
+68            </intent-filter>
+69        </activity>
 70
-71                <category android:name="android.intent.category.LAUNCHER" />
-71-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:31:17-76
-71-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:31:27-74
-72            </intent-filter>
-73        </activity>
-74        <!-- Fathom playback service (audio_service) -->
-75        <service
-75-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:35:9-42:19
-76            android:name="com.ryanheise.audioservice.AudioService"
-76-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:36:13-67
-77            android:exported="true"
-77-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:38:13-36
-78            android:foregroundServiceType="mediaPlayback" >
-78-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:37:13-58
-79            <intent-filter>
-79-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:39:13-41:29
-80                <action android:name="android.media.browse.MediaBrowserService" />
-80-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:40:17-82
-80-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:40:25-80
-81            </intent-filter>
-82        </service>
-83
-84        <receiver
-84-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:43:9-49:20
-85            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
-85-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:44:13-74
-86            android:exported="true" >
-86-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:45:13-36
-87            <intent-filter>
-87-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:46:13-48:29
-88                <action android:name="android.intent.action.MEDIA_BUTTON" />
-88-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:47:17-76
-88-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:47:25-74
-89            </intent-filter>
-90        </receiver>
-91        <!--
-92             Don't delete the meta-data below.
-93             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java
-94        -->
-95        <meta-data
-95-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:52:9-54:33
-96            android:name="flutterEmbedding"
-96-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:53:13-44
-97            android:value="2" />
-97-->/home/pharmaracist/fathom/android/app/src/main/AndroidManifest.xml:54:13-30
-98
-99        <provider
-99-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:24:9-32:20
-100            android:name="androidx.startup.InitializationProvider"
-100-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:25:13-67
-101            android:authorities="com.pharmaracist.fathom.androidx-startup"
-101-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:26:13-68
-102            android:exported="false" >
-102-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:27:13-37
-103            <meta-data
-103-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:29:13-31:52
-104                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-104-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:30:17-78
-105                android:value="androidx.startup" />
-105-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/a3de873eaa28f37d5d7edb46f82942a3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:31:17-49
-106            <meta-data
-106-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
-107                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-107-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
-108                android:value="androidx.startup" />
-108-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
-109        </provider>
-110
-111        <uses-library
-111-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:23:9-25:40
-112            android:name="androidx.window.extensions"
-112-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:24:13-54
-113            android:required="false" />
-113-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:25:13-37
-114        <uses-library
-114-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:26:9-28:40
-115            android:name="androidx.window.sidecar"
-115-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:27:13-51
-116            android:required="false" />
-116-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/3af980662234f52902de775e9c6e354f/transformed/window-1.2.0/AndroidManifest.xml:28:13-37
-117
-118        <receiver
-118-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
-119            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-119-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
-120            android:directBootAware="false"
-120-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
-121            android:enabled="true"
-121-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
-122            android:exported="true"
-122-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
-123            android:permission="android.permission.DUMP" >
-123-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+71        <!-- Required by audio_service so the media player can keep running -->
+72        <service
+72-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:42:9-50:19
+73            android:name="com.ryanheise.audioservice.AudioService"
+73-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:43:13-67
+74            android:exported="true"
+74-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:45:13-36
+75            android:foregroundServiceType="mediaPlayback" >
+75-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:44:13-58
+76            <intent-filter>
+76-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:47:13-49:29
+77                <action android:name="android.media.browse.MediaBrowserService" />
+77-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:48:17-83
+77-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:48:25-80
+78            </intent-filter>
+79        </service>
+80
+81        <receiver
+81-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:52:9-59:20
+82            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+82-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:53:13-74
+83            android:exported="true" >
+83-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:54:13-36
+84            <intent-filter>
+84-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:56:13-58:29
+85                <action android:name="android.intent.action.MEDIA_BUTTON" />
+85-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:73:13-73
+85-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:73:21-70
+86            </intent-filter>
+87        </receiver>
+88
+89        <meta-data
+89-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:61:9-63:33
+90            android:name="flutterEmbedding"
+90-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:62:13-44
+91            android:value="2" />
+91-->/home/pharmaracist/Projects/Fathom/android/app/src/main/AndroidManifest.xml:63:13-30
+92
+93        <provider
+93-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:24:9-32:20
+94            android:name="androidx.startup.InitializationProvider"
+94-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:25:13-67
+95            android:authorities="com.example.fathom.androidx-startup"
+95-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:26:13-68
+96            android:exported="false" >
+96-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:27:13-37
+97            <meta-data
+97-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:29:13-31:52
+98                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+98-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:30:17-78
+99                android:value="androidx.startup" />
+99-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8669a31cae226207dfe37facae628af3/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:31:17-49
+100            <meta-data
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+101                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+102                android:value="androidx.startup" />
+102-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+103        </provider>
+104
+105        <uses-library
+105-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:23:9-25:40
+106            android:name="androidx.window.extensions"
+106-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:24:13-54
+107            android:required="false" />
+107-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:25:13-37
+108        <uses-library
+108-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:26:9-28:40
+109            android:name="androidx.window.sidecar"
+109-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:27:13-51
+110            android:required="false" />
+110-->[androidx.window:window:1.2.0] /home/pharmaracist/.gradle/caches/9.3.1/transforms/8ccbe22c9e612e8cdde694a0cac6cf4c/transformed/window-1.2.0/AndroidManifest.xml:28:13-37
+111
+112        <receiver
+112-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+113            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+114            android:directBootAware="false"
+114-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+115            android:enabled="true"
+115-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+116            android:exported="true"
+116-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+117            android:permission="android.permission.DUMP" >
+117-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+118            <intent-filter>
+118-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+119                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+119-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+119-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+120            </intent-filter>
+121            <intent-filter>
+121-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+122                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+122-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+122-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+123            </intent-filter>
 124            <intent-filter>
-124-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
-125                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-125-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
-125-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+124-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+125                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+125-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+125-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
 126            </intent-filter>
 127            <intent-filter>
-127-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
-128                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-128-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
-128-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+127-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+128                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+128-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+128-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/af0248b353377f62cbfee862262d1506/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
 129            </intent-filter>
-130            <intent-filter>
-130-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
-131                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-131-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
-131-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
-132            </intent-filter>
-133            <intent-filter>
-133-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
-134                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-134-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
-134-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/pharmaracist/.gradle/caches/9.3.1/transforms/9769e122bbba14d4a075c4f9208443ae/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
-135            </intent-filter>
-136        </receiver>
-137    </application>
-138
-139</manifest>
+130        </receiver>
+131    </application>
+132
+133</manifest>

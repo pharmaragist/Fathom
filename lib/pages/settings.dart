@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
-import '../states.dart';
+import '../common/colors.dart';
+import '../common/constants.dart';
+import '../common/library.dart';
+import '../common/player.dart';
+import '../common/settings.dart';
 import '../components/glass.dart';
 import 'library.dart' show LibrarySort;
-import 'playing.dart' show showEqualizerBottomSheet;
 
 const Color _divider = Color(0xFF1C1C1C);
 const Color _switchOff = Color(0xFF262626);
@@ -32,13 +35,19 @@ class SettingsPage extends StatelessWidget {
     final top = MediaQuery.viewPaddingOf(context).top;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     final accent = settings.accent;
-    final sort = LibrarySort
-        .values[settings.sortIndex.clamp(0, LibrarySort.values.length - 1)];
-    final eqValue =
-        !settings.eqEnabled ? 'Off' : (settings.eqPreset ?? 'Custom');
 
-    final accentSubtitle = settings.useArtAccent ? 'Auto (Artwork)' : 'Manual';
-    final fontFamily = settings.fontKey == 'Oswald' ? 'Oswald' : null;
+    final sortIndex = settings.get<int>(SettingKey.sortIndex);
+    final sort = LibrarySort
+        .values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
+
+    final useArtAccent = settings.get<bool>(SettingKey.useArtAccent);
+    final accentSubtitle = useArtAccent ? 'Auto (Artwork)' : 'Manual';
+
+    final fontKey = settings.get<String>(SettingKey.fontKey);
+    final fontFamily = fontKey == 'Oswald' ? 'Oswald' : null;
+
+    final speedIndex = settings.get<int>(SettingKey.speedIndex);
+    final gapless = settings.get<bool>(SettingKey.gapless);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
@@ -106,16 +115,16 @@ class SettingsPage extends StatelessWidget {
                     icon: TablerIcons.gauge,
                     accent: accent,
                     label: 'Playback speed',
-                    value: kSpeedLabels[settings.speedIndex],
+                    value: kSpeedLabels[speedIndex],
                     onTap: () => _showSpeedSheet(context),
                   ),
                   _SwitchRow(
                     icon: TablerIcons.chevronsRight,
                     accent: accent,
                     label: 'Gapless playback',
-                    value: settings.gapless,
+                    value: gapless,
                     onChanged: (v) {
-                      context.read<FathomSettings>().setGapless(v);
+                      context.read<FathomSettings>().set(SettingKey.gapless, v);
                     },
                   ),
                 ],
@@ -148,7 +157,7 @@ class SettingsPage extends StatelessWidget {
                     icon: TablerIcons.typography,
                     accent: accent,
                     label: 'Typography',
-                    value: settings.fontKey,
+                    value: fontKey,
                     onTap: () => _showTypographySheet(context),
                   ),
                 ],
@@ -215,6 +224,8 @@ Future<void> _showSheet(
 void _showSortSheet(BuildContext context) {
   final settings = context.read<FathomSettings>();
   final accent = settings.accent;
+  final currentSortIndex = settings.get<int>(SettingKey.sortIndex);
+
   _showSheet(
     context,
     title: 'Default sort',
@@ -223,10 +234,10 @@ void _showSortSheet(BuildContext context) {
         for (final option in LibrarySort.values)
           _OptionRow(
             label: option.label,
-            selected: settings.sortIndex == option.index,
+            selected: currentSortIndex == option.index,
             accent: accent,
             onTap: () {
-              settings.setSortIndex(option.index);
+              settings.set(SettingKey.sortIndex, option.index);
               Navigator.of(ctx).maybePop();
             },
           ),
@@ -239,6 +250,8 @@ void _showSpeedSheet(BuildContext context) {
   final settings = context.read<FathomSettings>();
   final player = context.read<FathomPlayer>();
   final accent = settings.accent;
+  final currentSpeedIndex = settings.get<int>(SettingKey.speedIndex);
+
   _showSheet(
     context,
     title: 'Playback speed',
@@ -247,10 +260,10 @@ void _showSpeedSheet(BuildContext context) {
         for (var i = 0; i < kSpeedLabels.length; i++)
           _OptionRow(
             label: kSpeedLabels[i],
-            selected: settings.speedIndex == i,
+            selected: currentSpeedIndex == i,
             accent: accent,
             onTap: () {
-              settings.setSpeedIndex(i);
+              settings.set(SettingKey.speedIndex, i);
               player.setSpeedFactor(kSpeedFactors[i]);
               Navigator.of(ctx).maybePop();
             },
@@ -268,6 +281,9 @@ void _showAccentSheet(BuildContext context) {
       return Consumer<FathomSettings>(
         builder: (context, settings, _) {
           final accent = settings.accent;
+          final useArt = settings.get<bool>(SettingKey.useArtAccent);
+          final currentAccentIndex = settings.get<int>(SettingKey.accentIndex);
+
           return Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: Column(
@@ -277,8 +293,8 @@ void _showAccentSheet(BuildContext context) {
                   icon: TablerIcons.colorFilter,
                   accent: accent,
                   label: 'Match track artwork',
-                  value: settings.useArtAccent,
-                  onChanged: (val) => settings.setUseArtAccent(val),
+                  value: useArt,
+                  onChanged: (val) => settings.set(SettingKey.useArtAccent, val),
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -292,10 +308,11 @@ void _showAccentSheet(BuildContext context) {
                   spacing: 14,
                   runSpacing: 14,
                   children: [
-                    for (var i = 0; i < kAccentSwatches.length; i++)
+                    for (var i = 0; i < FathomColors.accentSwatches.length; i++)
                       GestureDetector(
                         onTap: () {
-                          settings.setAccentIndex(i);
+                          settings.set(SettingKey.accentIndex, i);
+                          settings.set(SettingKey.useArtAccent, false);
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
@@ -303,24 +320,21 @@ void _showAccentSheet(BuildContext context) {
                           height: 46,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: kAccentSwatches[i],
+                            color: FathomColors.accentSwatches[i],
                             border: Border.all(
-                              color: (!settings.useArtAccent &&
-                                      settings.accentIndex == i)
+                              color: (!useArt && currentAccentIndex == i)
                                   ? Colors.white
                                   : Colors.white.withValues(alpha: 0.14),
-                              width: (!settings.useArtAccent &&
-                                      settings.accentIndex == i)
+                              width: (!useArt && currentAccentIndex == i)
                                   ? 2.5
                                   : 1,
                             ),
                           ),
-                          child: (!settings.useArtAccent &&
-                                  settings.accentIndex == i)
+                          child: (!useArt && currentAccentIndex == i)
                               ? Icon(
                                   TablerIcons.check,
                                   size: 22,
-                                  color: _onColor(kAccentSwatches[i]),
+                                  color: _onColor(FathomColors.accentSwatches[i]),
                                 )
                               : null,
                         ),
@@ -339,6 +353,8 @@ void _showAccentSheet(BuildContext context) {
 void _showTypographySheet(BuildContext context) {
   final settings = context.read<FathomSettings>();
   final accent = settings.accent;
+  final currentFontKey = settings.get<String>(SettingKey.fontKey);
+
   _showSheet(
     context,
     title: 'Typography',
@@ -349,10 +365,10 @@ void _showTypographySheet(BuildContext context) {
             label: font,
             labelStyle:
                 font == 'Oswald' ? const TextStyle(fontFamily: 'Oswald') : null,
-            selected: settings.fontKey == font,
+            selected: currentFontKey == font,
             accent: accent,
             onTap: () {
-              settings.setFontKey(font);
+              settings.set(SettingKey.fontKey, font);
               Navigator.of(ctx).maybePop();
             },
           ),

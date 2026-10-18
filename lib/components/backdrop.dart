@@ -1,9 +1,9 @@
 import 'dart:typed_data';
-import 'package:provider/provider.dart';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../states.dart';
+import '../common/settings.dart';
 
 class AmbientBackdrop extends StatelessWidget {
   const AmbientBackdrop({super.key, this.trackId, this.artwork});

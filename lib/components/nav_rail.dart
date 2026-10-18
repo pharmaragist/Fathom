@@ -1,42 +1,95 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
-import '../states.dart';
 
 const double kPillHeight = 64;
 const double kHorizontalMargin = 4;
 const double kElevationMargin = 6;
 const double kNavBarHeight = 64;
 
-class FloatingNavRail extends StatelessWidget {
+class FloatingNavRail extends StatefulWidget {
   const FloatingNavRail({
     super.key,
     required this.index,
     required this.accent,
     required this.bottomSafe,
     required this.onChanged,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onSearchCleared,
+    required this.sortLabel,
+    required this.onSort,
   });
 
   final int index;
   final Color accent;
   final double bottomSafe;
   final ValueChanged<int> onChanged;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchCleared;
+  final String sortLabel;
+  final VoidCallback onSort;
+
+  @override
+  State<FloatingNavRail> createState() => _FloatingNavRailState();
+}
+
+class _FloatingNavRailState extends State<FloatingNavRail> {
+  static const _debounceDuration = Duration(milliseconds: 300);
+
+  bool _isSearching = false;
+  Timer? _debounce;
 
   static const _items = [
     (label: 'Library', icon: TablerIcons.discFilled),
-   (label: 'Equalizer', icon: TablerIcons.waveSine),
+    (label: 'Equalizer', icon: TablerIcons.waveSine),
   ];
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    if (value.isEmpty) {
+      widget.onSearchChanged(value);
+      return;
+    }
+    _debounce = Timer(_debounceDuration, () => widget.onSearchChanged(value));
+  }
+
+  void _onQuerySubmitted(String value) {
+    _debounce?.cancel();
+    widget.onSearchChanged(value);
+  }
+
+  void _toggleSearch(bool active) {
+    _debounce?.cancel();
+    setState(() => _isSearching = active);
+    if (!active) widget.onSearchCleared();
+  }
+
+  Widget _switcherLayout(Widget? current, List<Widget> previous) {
+    return Stack(
+      fit: StackFit.expand,
+      alignment: Alignment.center,
+      children: [...previous, if (current != null) current],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final notchDepth = kPillHeight / 2 + kElevationMargin;
     final count = _items.length;
-    final alignX = count == 1 ? 0.0 : -1 + 2 * index / (count - 1);
 
     return SizedBox(
       width: double.infinity,
-      height: notchDepth + kNavBarHeight + bottomSafe,
+      height: notchDepth + kNavBarHeight + widget.bottomSafe,
       child: Stack(
         children: [
           Positioned.fill(
@@ -66,49 +119,265 @@ class FloatingNavRail extends StatelessWidget {
             height: kNavBarHeight,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Stack(
-                children: [
-                  AnimatedAlign(
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.easeOutBack,
-                    alignment: Alignment(alignX, 0),
-                    child: FractionallySizedBox(
-                      widthFactor: 1 / count,
-                      heightFactor: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 10),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(999),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+                  const searchBtnWidth = 48.0;
+                  final availableWidth = totalWidth - searchBtnWidth;
+                  final itemWidth = availableWidth / count;
+
+                  final double indicatorLeft = _isSearching
+                      ? 0.0
+                      : searchBtnWidth + (widget.index * itemWidth);
+                  final double indicatorWidth =
+                      _isSearching ? totalWidth : itemWidth;
+
+                  return Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 380),
+                        curve: Curves.easeOutBack,
+                        left: indicatorLeft,
+                        width: indicatorWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 8),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 280),
+                            decoration: BoxDecoration(
+                              color: widget.accent
+                                  .withValues(alpha: _isSearching ? 0.1 : 0.18),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: widget.accent.withValues(
+                                    alpha: _isSearching ? 0.35 : 0.0),
+                                width: 1,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < count; i++)
-                          Expanded(
-                            child: _NavItem(
-                              label: _items[i].label,
-                              icon: _items[i].icon,
-                              selected: index == i,
-                              accent: accent,
-                              onTap: () => onChanged(i),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          layoutBuilder: _switcherLayout,
+                          child: _isSearching
+                              ? _NavSearchContent(
+                                  key: const ValueKey('search_mode'),
+                                  controller: widget.searchController,
+                                  accent: widget.accent,
+                                  sortLabel: widget.sortLabel,
+                                  onSort: widget.onSort,
+                                  onChanged: _onQueryChanged,
+                                  onSubmitted: _onQuerySubmitted,
+                                  onClose: () => _toggleSearch(false),
+                                )
+                              : Row(
+                                  key: const ValueKey('nav_mode'),
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(
+                                      width: searchBtnWidth,
+                                      child: IconButton(
+                                        icon: const Icon(TablerIcons.search,
+                                            size: 20),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.72),
+                                        onPressed: () => _toggleSearch(true),
+                                      ),
+                                    ),
+                                    for (var i = 0; i < count; i++)
+                                      Expanded(
+                                        child: _NavItem(
+                                          label: _items[i].label,
+                                          icon: _items[i].icon,
+                                          selected: widget.index == i,
+                                          accent: widget.accent,
+                                          onTap: () => widget.onChanged(i),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NavSearchContent extends StatelessWidget {
+  const _NavSearchContent({
+    super.key,
+    required this.controller,
+    required this.accent,
+    required this.sortLabel,
+    required this.onSort,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onClose,
+  });
+
+  final TextEditingController controller;
+  final Color accent;
+  final String sortLabel;
+  final VoidCallback onSort;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onClose;
+
+  void _handleTrailing() {
+    if (controller.text.isEmpty) {
+      onClose();
+      return;
+    }
+    controller.clear();
+    onChanged('');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, right: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(TablerIcons.search, size: 18, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              onChanged: onChanged,
+              onSubmitted: (value) {
+                onSubmitted(value);
+                FocusScope.of(context).unfocus();
+              },
+              textInputAction: TextInputAction.search,
+              textAlignVertical: TextAlignVertical.center,
+              autocorrect: false,
+              enableSuggestions: false,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.2,
+                color: Colors.white,
+              ),
+              cursorColor: accent,
+              cursorHeight: 18,
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: 'Search library',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  height: 1.2,
+                  color: Colors.white.withValues(alpha: 0.38),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _SortChip(label: sortLabel, accent: accent, onTap: onSort),
+          const SizedBox(width: 6),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              return _RoundIconButton(
+                icon: value.text.isEmpty ? TablerIcons.x : TablerIcons.backspace,
+                color: Colors.white.withValues(alpha: 0.6),
+                onTap: _handleTrailing,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SortChip extends StatelessWidget {
+  const _SortChip({
+    required this.label,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: accent.withValues(alpha: 0.16),
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(TablerIcons.arrowsSort, size: 14, color: accent),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(child: Icon(icon, size: 18, color: color)),
+        ),
       ),
     );
   }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
-import 'package:just_audio/just_audio.dart';
 
-import '../states.dart';
+import '../common/constants.dart';
+import '../common/player.dart';
+import '../common/settings.dart';
 import '../components/glass.dart';
 
 class EqualizerPage extends StatefulWidget {
@@ -108,6 +110,9 @@ class _ControlsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final eqEnabled = settings.get<bool>(SettingKey.eqEnabled);
+    final currentPreset = settings.get<String?>(SettingKey.eqPreset);
+
     return GlassContainer(
       radius: 24,
       bgOpacity: 0.08,
@@ -130,7 +135,7 @@ class _ControlsCard extends StatelessWidget {
               ),
               const Spacer(),
               Switch.adaptive(
-                value: settings.eqEnabled,
+                value: eqEnabled,
                 activeTrackColor: accent,
                 onChanged: (v) {
                   context.read<FathomPlayer>().setDeviceEqualizerEnabled(v);
@@ -153,7 +158,7 @@ class _ControlsCard extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 8),
                     child: _PresetChip(
                       label: preset,
-                      selected: settings.eqPreset == preset,
+                      selected: currentPreset == preset,
                       accent: accent,
                       onTap: () {
                         context.read<FathomPlayer>().applyEqPreset(preset);
