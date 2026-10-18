@@ -1,7 +1,0 @@
-com.pharmaracist.fathom.app-debug-0 /home/pharmaracist/fathom/android/app/src/debug/res
-com.pharmaracist.fathom.app-main-1 /home/pharmaracist/fathom/android/app/src/main/res
-com.pharmaracist.fathom.app-pngs-2 /home/pharmaracist/fathom/build/app/generated/res/pngs/debug
-com.pharmaracist.fathom.app-updated_navigation_xml-3 /home/pharmaracist/fathom/build/app/generated/updated_navigation_xml/debug
-com.pharmaracist.fathom.app-packageDebugResources-4 /home/pharmaracist/fathom/build/app/intermediates/incremental/debug/packageDebugResources/merged.dir
-com.pharmaracist.fathom.app-packageDebugResources-5 /home/pharmaracist/fathom/build/app/intermediates/incremental/debug/packageDebugResources/stripped.dir
-com.pharmaracist.fathom.app-debug-6 /home/pharmaracist/fathom/build/app/intermediates/merged_res/debug/mergeDebugResources
