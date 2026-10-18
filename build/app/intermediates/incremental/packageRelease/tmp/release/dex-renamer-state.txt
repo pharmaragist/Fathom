@@ -1,0 +1,4 @@
+#Sat Oct 17 19:24:09 EEST 2026
+base.0=/home/pharmaracist/fathom/build/app/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+path.0=classes.dex
+renamed.0=classes.dex

@@ -1,0 +1,36 @@
+name: fathom
+description: Fathom — a deep, minimalist, ethereal local music player by pharmaracist.
+publish_to: "none"
+version: 1.0.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  just_audio: ^0.10.6
+  audio_service: ^0.18.18
+  audio_session: ^0.2.2
+  on_audio_query: ^2.9.0
+  tabler_icons_plus: ^3.46.0
+  shared_preferences: ^2.3.3
+  super_sliver_list: ^0.4.0
+  palette_generator: ^0.3.3+3
+  volume_controller: ^3.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/logo.png
+  fonts:
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-Regular.ttf
+          weight: 400
