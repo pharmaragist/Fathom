@@ -87,11 +87,8 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
 
             bands.forEachIndexed { index, hz ->
                 try {
-                    val band = effect.getPostEqBand(index)
-                    band.isEnabled = true
-                    band.cutoffFrequency = hz.toFloat()
-                    band.gain = initialGain.toFloat()
-                    effect.setPostEqBand(band)
+                    val band = DynamicsProcessing.EqBand(true, hz.toFloat(), initialGain.toFloat())
+                    effect.setPostEqBandAllChannelsTo(index, band)
                 } catch (e: Exception) {
                     Log.w(TAG, "Device rejected band $index ($hz Hz)", e)
                 }
@@ -113,9 +110,9 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
         fun setGain(index: Int, db: Double) {
             if (index < 0) return
             try {
-                val band = effect.getPostEqBand(index)
+                val band = effect.getPostEqBandByChannelIndex(0, index)
                 band.gain = db.toFloat()
-                effect.setPostEqBand(band)
+                effect.setPostEqBandAllChannelsTo(index, band)
             } catch (e: Exception) {
                 Log.w(TAG, "Unable to set band $index", e)
             }
