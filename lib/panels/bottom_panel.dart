@@ -10,8 +10,8 @@ import '../components/art.dart';
 import '../components/glass.dart';
 import '../components/nav_rail.dart';
 import '../models/tracks.dart';
-import '../pages/library.dart' show chooseSortBottomSheet, LibrarySort;
-import '../pages/playing.dart' show NowPlayingPage;
+import '../pages/library.dart'
+    show chooseSortBottomSheet, LibrarySort, nowPlayingRoute;
 
 class BottomPanel extends StatelessWidget {
   const BottomPanel({
@@ -19,11 +19,16 @@ class BottomPanel extends StatelessWidget {
     required this.currentIndex,
     required this.onNavChanged,
     required this.searchController,
+    required this.searchOpen,
   });
 
   final int currentIndex;
   final ValueChanged<int> onNavChanged;
   final TextEditingController searchController;
+
+  /// Reports the expanded state of the search rail so the dismiss layer can
+  /// cover the pages while a query is being typed.
+  final ValueNotifier<bool> searchOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -31,45 +36,63 @@ class BottomPanel extends StatelessWidget {
     final sortIndex = context.select<FathomSettings, int>(
       (s) => s.get<int>(SettingKey.sortIndex),
     );
-    final currentSort = LibrarySort.values[
-      sortIndex.clamp(0, LibrarySort.values.length - 1)
-    ];
+    final currentSort =
+        LibrarySort.values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Consumer<FathomSettings>(
-            builder: (context, settings, _) => FloatingNavRail(
-              index: currentIndex,
-              accent: settings.accent,
-              bottomSafe: bottomSafe,
-              onChanged: onNavChanged,
-              searchController: searchController,
-              onSearchChanged: (q) => searchQuery.value = q,
-              onSearchCleared: () {
-                searchController.clear();
-                searchQuery.value = '';
-              },
-              sortLabel: currentSort.label,
-              onSort: () => chooseSortBottomSheet(
-                context,
-                settings.accent,
-                currentSort,
+    return ValueListenableBuilder<bool>(
+      valueListenable: searchOpen,
+      // The builder owns the Stack so `Positioned` stays a direct child of it.
+      builder: (context, searching, _) => Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (searching)
+            // Full-screen dismiss layer. While the query field has focus it
+            // swallows presses on the pages, so a stray tap cannot start
+            // playback. It is the first child, hence hit-tested last: the rail
+            // and the mini player keep their own taps. Collapsing is left to
+            // the field losing focus, which is the path that also keeps the
+            // query held for the dismiss icon.
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+              ),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Consumer<FathomSettings>(
+              builder: (context, settings, _) => FloatingNavRail(
+                index: currentIndex,
+                accent: settings.accent,
+                bottomSafe: bottomSafe,
+                onChanged: onNavChanged,
+                searchController: searchController,
+                query: searchQuery,
+                onSearchChanged: (q) => searchQuery.value = q,
+                onSearchOpenChanged: (open) => searchOpen.value = open,
+                onSearchCleared: () {
+                  searchController.clear();
+                  searchQuery.value = '';
+                },
+                sortLabel: currentSort.label,
+                onSort: () => chooseSortBottomSheet(
+                  context,
+                  settings.accent,
+                  currentSort,
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          left: kHorizontalMargin,
-          right: kHorizontalMargin,
-          bottom: bottomSafe + kNavBarHeight + kElevationMargin,
-          child: const FloatingIslandPlayer(),
-        ),
-      ],
+          Positioned(
+            left: kHorizontalMargin,
+            right: kHorizontalMargin,
+            bottom: bottomSafe + kNavBarHeight + kElevationMargin,
+            child: const FloatingIslandPlayer(),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -180,7 +203,8 @@ class _FloatingIslandPlayerState extends State<FloatingIslandPlayer>
                         : _dragOffset;
 
                     final progress = (currentOffset / 160.0).clamp(-1.0, 1.0);
-                    final opacity = (1.0 - (progress.abs() * 0.7)).clamp(0.0, 1.0);
+                    final opacity =
+                        (1.0 - (progress.abs() * 0.7)).clamp(0.0, 1.0);
                     final scale = 1.0 - (progress.abs() * 0.08);
 
                     return Transform.translate(
@@ -205,7 +229,7 @@ class _FloatingIslandPlayerState extends State<FloatingIslandPlayer>
                           child: ArtThumb(
                             id: track.id,
                             artwork: library.artFor(track.id),
-                            size: 36,
+                            size: 40,
                             radius: 50,
                           ),
                         ),
@@ -267,33 +291,6 @@ class _FloatingIslandPlayerState extends State<FloatingIslandPlayer>
 
   void _openNowPlaying(BuildContext context) {
     heroFromPanel.value = true;
-    Navigator.of(context).push(_nowPlayingRoute());
+    Navigator.of(context).push(nowPlayingRoute());
   }
-}
-
-Route<void> _nowPlayingRoute() {
-  return PageRouteBuilder<void>(
-    fullscreenDialog: true,
-    opaque: true,
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 360),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        const NowPlayingPage(),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeInOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.08),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
 }

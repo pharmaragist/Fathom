@@ -5,14 +5,19 @@ class FathomColors {
 
   static const List<Color> accentSwatches = [
     Color(0xFFFFFFFF),
-    Color(0xFF0A84FF),
-    Color(0xFF64D2FF),
-    Color(0xFF30D158),
-    Color(0xFFFFD60A),
-    Color(0xFFFF9F0A),
-    Color(0xFFFF453A),
-    Color(0xFFBF5AF2),
-    Color(0xFFFF2D55),
+    Color(0xFFDC8666),
+    Color(0xFF138085),
+    Color(0xFF544667),
+    Color(0xFFCE7672),
+    Color(0xFFEEB462),
+    Color(0xFFEEC3BD),
+    Color(0xFF364B74),
+    Color(0xFF84815C),
+    Color(0xFFD1CBC0),
+    Color(0xFF4A6B5D),
+    Color(0xFF8B5742),
+    Color(0xFF9C7A97),
+    Color(0xFF6B8496)
   ];
 
   static const Color background = Colors.black;

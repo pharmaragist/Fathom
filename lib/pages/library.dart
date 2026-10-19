@@ -70,13 +70,24 @@ Route<void> nowPlayingRoute() {
   return PageRouteBuilder<void>(
     fullscreenDialog: true,
     opaque: true,
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (context, animation, secondaryAnimation) => const NowPlayingPage(),
+    transitionDuration: const Duration(milliseconds: 420),
+    reverseTransitionDuration: const Duration(milliseconds: 360),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        const NowPlayingPage(),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeInOutCubic,
+      );
       return FadeTransition(
-        opacity: animation.drive(CurveTween(curve: Curves.easeOut)),
-        child: child,
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.08),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
       );
     },
   );
@@ -452,7 +463,7 @@ class _Header extends StatelessWidget {
       children: [
         const Expanded(
           child: Text(
-            'Fathom',
+            'Library',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
@@ -17,8 +18,10 @@ class FloatingNavRail extends StatefulWidget {
     required this.bottomSafe,
     required this.onChanged,
     required this.searchController,
+    required this.query,
     required this.onSearchChanged,
     required this.onSearchCleared,
+    required this.onSearchOpenChanged,
     required this.sortLabel,
     required this.onSort,
   });
@@ -28,8 +31,16 @@ class FloatingNavRail extends StatefulWidget {
   final double bottomSafe;
   final ValueChanged<int> onChanged;
   final TextEditingController searchController;
+
+  /// The applied filter, the same value the library list is driven by. It stays
+  /// set after the rail collapses, which is what the dismiss icon reports.
+  final ValueListenable<String> query;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchCleared;
+
+  /// Reports the expanded state so the shell can put a dismiss layer over the
+  /// pages for as long as the query field is on screen.
+  final ValueChanged<bool> onSearchOpenChanged;
   final String sortLabel;
   final VoidCallback onSort;
 
@@ -87,19 +98,26 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
   void _toggleSearch(bool active) {
     _debounce?.cancel();
     if (active) {
+      // Collapsing flushes the field into the applied query, so an empty query
+      // here can only be a stale draft left behind by an external clear.
+      if (widget.query.value.isEmpty) widget.searchController.clear();
       setState(() => _isSearching = true);
+      widget.onSearchOpenChanged(true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _searchFocus.requestFocus();
       });
       return;
     }
 
-    final wasSearching = _isSearching;
+    // Flush the keystroke still sitting in the debounce so the held query
+    // matches what the field shows once it collapses.
+    widget.onSearchChanged(widget.searchController.text);
+
     setState(() => _isSearching = false);
+    widget.onSearchOpenChanged(false);
     // Drop focus after clearing the flag so the focus listener does not
     // re-enter this branch.
     _searchFocus.unfocus();
-    if (wasSearching) widget.onSearchCleared();
   }
 
   Widget _switcherLayout(Widget? current, List<Widget> previous) {
@@ -212,12 +230,28 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
                                   children: [
                                     SizedBox(
                                       width: searchBtnWidth,
-                                      child: IconButton(
-                                        icon: const Icon(TablerIcons.search,
-                                            size: 20),
-                                        color: Colors.white
-                                            .withValues(alpha: 0.72),
-                                        onPressed: () => _toggleSearch(true),
+                                      child: ValueListenableBuilder<String>(
+                                        valueListenable: widget.query,
+                                        builder: (context, query, _) {
+                                          final hasQuery = query.isNotEmpty;
+                                          // A held query turns the lens into a
+                                          // dismiss button: tapping it drops
+                                          // the query and the library goes
+                                          // back to the full list.
+                                          return IconButton(
+                                            icon: Icon(
+                                              hasQuery
+                                                  ? TablerIcons.x
+                                                  : TablerIcons.search,
+                                              size: 20,
+                                            ),
+                                            color: Colors.white.withValues(
+                                                alpha: hasQuery ? 0.9 : 0.72),
+                                            onPressed: hasQuery
+                                                ? widget.onSearchCleared
+                                                : () => _toggleSearch(true),
+                                          );
+                                        },
                                       ),
                                     ),
                                     for (var i = 0; i < count; i++)
@@ -332,7 +366,8 @@ class _NavSearchContent extends StatelessWidget {
             valueListenable: controller,
             builder: (context, value, _) {
               return _RoundIconButton(
-                icon: value.text.isEmpty ? TablerIcons.x : TablerIcons.backspace,
+                icon:
+                    value.text.isEmpty ? TablerIcons.x : TablerIcons.backspace,
                 color: Colors.white.withValues(alpha: 0.6),
                 onTap: _handleTrailing,
               );

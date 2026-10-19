@@ -8,7 +8,7 @@ class GlassContainer extends StatelessWidget {
     this.radius = 22,
     this.blur = 16,
     this.bgOpacity = 0.65,
-    this.borderOpacity = 0.25,
+    this.borderOpacity = 0.07,
     this.accent,
     this.padding,
     this.shadow = false,

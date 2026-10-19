@@ -20,6 +20,10 @@ class _RootShellState extends State<RootShell> {
   final Set<int> _visitedPages = {0};
   final TextEditingController _searchController = TextEditingController();
 
+  /// Mirrors whether the search rail is expanded. The dismiss layer needs it
+  /// in the shell, where it can cover the pages as well as the rail.
+  final ValueNotifier<bool> _searchOpen = ValueNotifier<bool>(false);
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +37,7 @@ class _RootShellState extends State<RootShell> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchOpen.dispose();
     super.dispose();
   }
 
@@ -66,6 +71,7 @@ class _RootShellState extends State<RootShell> {
                 });
               },
               searchController: _searchController,
+              searchOpen: _searchOpen,
             ),
           ),
         ],
