@@ -264,6 +264,9 @@ class _NavSearchContent extends StatelessWidget {
                 onSubmitted(value);
                 FocusScope.of(context).unfocus();
               },
+              onTapOutside: (event) {
+                FocusScope.of(context).unfocus();
+              },
               textInputAction: TextInputAction.search,
               textAlignVertical: TextAlignVertical.center,
               autocorrect: false,

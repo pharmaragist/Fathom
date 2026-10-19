@@ -7,15 +7,16 @@ import 'package:palette_generator_plus/palette_generator_plus.dart';
 
 import '../models/tracks.dart';
 import '../services/audio.dart';
+import '../services/equalizer.dart';
 import 'constants.dart';
 import 'library.dart';
 import 'settings.dart';
 
 class FathomPlayer extends ChangeNotifier {
   FathomPlayer(this.settings) {
-    _equalizer = AndroidEqualizer();
+    _hardwareEqualizer = AndroidEqualizer();
     _audioPlayer = AudioPlayer(
-      audioPipeline: AudioPipeline(androidAudioEffects: [_equalizer]),
+      audioPipeline: AudioPipeline(androidAudioEffects: [_hardwareEqualizer]),
     );
 
     _subscriptions.addAll([
@@ -28,7 +29,8 @@ class FathomPlayer extends ChangeNotifier {
   final FathomSettings settings;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
-  late final AndroidEqualizer _equalizer;
+  late final AndroidEqualizer _hardwareEqualizer;
+  final FathomNativeEqualizer _nativeEq = FathomNativeEqualizer();
   late final AudioPlayer _audioPlayer;
 
   FathomAudioHandler? _handler;
@@ -44,6 +46,7 @@ class FathomPlayer extends ChangeNotifier {
 
   bool _eqApplied = false;
   bool _eqReady = false;
+  bool _nativeEqReady = false;
   bool _isSettingQueue = false;
   String _lastError = '';
   Future<void>? _initializeFuture;
@@ -56,6 +59,7 @@ class FathomPlayer extends ChangeNotifier {
   bool get hasCurrent =>
       queue.isNotEmpty && _selectedIndex >= 0 && _selectedIndex < queue.length;
   bool get eqReady => _eqReady;
+  bool get usingNativeEqualizer => _nativeEqReady;
   String get lastError => _lastError;
   bool get isPlaying => _audioPlayer.playing;
   Duration get position => _audioPlayer.position;
@@ -64,7 +68,8 @@ class FathomPlayer extends ChangeNotifier {
   FathomTrack? get currentTrack => hasCurrent ? queue[_selectedIndex] : null;
 
   AudioPlayer get audioPlayer => _audioPlayer;
-  AndroidEqualizer get equalizer => _equalizer;
+  AndroidEqualizer get equalizer => _hardwareEqualizer;
+  AndroidEqualizer get hardwareEqualizer => _hardwareEqualizer;
 
   bool get canSkipNext {
     if (!hasCurrent) return false;
@@ -287,12 +292,27 @@ class FathomPlayer extends ChangeNotifier {
   Future<void> ensureEqReady() => _tryApplyEqualizer();
 
   void setBandGain(int centerHz, double db, {bool persist = false}) {
-    unawaited(_setBandOnDevice(centerHz, db));
+    unawaited(_setBandGain(centerHz, db));
     if (settings.get<String?>(SettingKey.eqPreset) != null) {
       settings.set<String?>(SettingKey.eqPreset, null);
     }
     settings.stageEqGain(centerHz, db);
     if (persist) settings.commitEq();
+  }
+
+  Future<void> _setBandGain(int centerHz, double db) async {
+    if (_nativeEqReady) {
+      final idx = kEq10Bands.indexOf(centerHz);
+      if (idx >= 0) {
+        final clamped = db.clamp(
+          FathomNativeEqualizer.minDecibels,
+          FathomNativeEqualizer.maxDecibels,
+        );
+        await _nativeEq.setGain(idx, clamped);
+        return;
+      }
+    }
+    await _setBandOnDevice(centerHz, db);
   }
 
   Future<void> applyEqPreset(String preset) async {
@@ -301,17 +321,31 @@ class FathomPlayer extends ChangeNotifier {
     if (!_eqReady) return;
 
     try {
-      final params = await _equalizer.parameters;
       final gains10 = kEqPresetGains10[preset]!;
-
-      for (final band in params.bands) {
-        final hz = band.centerFrequency.toInt();
-        final idx = kEq10Bands.indexOf(hz);
-        final db = idx != -1 ? gains10[idx] : 0.0;
-        final clamped =
-            db.clamp(params.minDecibels, params.maxDecibels).toDouble();
-        await band.setGain(clamped);
-        settings.stageEqGain(hz, clamped);
+      if (_nativeEqReady) {
+        final target = List<double>.generate(kEq10Bands.length, (i) {
+          final db = gains10[i];
+          final clamped = db.clamp(
+            FathomNativeEqualizer.minDecibels,
+            FathomNativeEqualizer.maxDecibels,
+          );
+          return clamped;
+        });
+        await _nativeEq.setGains(target);
+        for (var i = 0; i < kEq10Bands.length; i++) {
+          settings.stageEqGain(kEq10Bands[i], target[i]);
+        }
+      } else {
+        final params = await _hardwareEqualizer.parameters;
+        for (final band in params.bands) {
+          final hz = band.centerFrequency.toInt();
+          final idx = kEq10Bands.indexOf(hz);
+          final db = idx != -1 ? gains10[idx] : 0.0;
+          final clamped =
+              db.clamp(params.minDecibels, params.maxDecibels).toDouble();
+          await band.setGain(clamped);
+          settings.stageEqGain(hz, clamped);
+        }
       }
       settings.commitEq();
     } catch (_) {}
@@ -320,16 +354,20 @@ class FathomPlayer extends ChangeNotifier {
 
   Future<void> setDeviceEqualizerEnabled(bool enabled) async {
     settings.set(SettingKey.eqEnabled, enabled);
+    if (_nativeEqReady) {
+      await _nativeEq.setEnabled(enabled);
+      return;
+    }
     if (!_eqReady) return;
     try {
-      await _equalizer.setEnabled(enabled);
+      await _hardwareEqualizer.setEnabled(enabled);
     } catch (_) {}
   }
 
   Future<void> _setBandOnDevice(int centerHz, double db) async {
-    if (!_eqReady) return;
+    if (!_eqReady || _nativeEqReady) return;
     try {
-      final params = await _equalizer.parameters;
+      final params = await _hardwareEqualizer.parameters;
       for (final band in params.bands) {
         if (band.centerFrequency.toInt() == centerHz) {
           final clamped =
@@ -344,8 +382,28 @@ class FathomPlayer extends ChangeNotifier {
     if (_eqApplied) return;
     _eqApplied = true;
 
+    final sessionId = _audioPlayer.androidAudioSessionId;
+    _nativeEqReady = false;
+    if (sessionId != null) {
+      try {
+        final attached = await _nativeEq.attach(
+          sessionId: sessionId,
+          bands: List<int>.of(kEq10Bands),
+        );
+        if (attached) {
+          _nativeEqReady = true;
+          await _applyNativeEqualizer();
+          _eqReady = true;
+          notifyListeners();
+          return;
+        }
+      } catch (_) {
+        _nativeEq.detach();
+      }
+    }
+
     try {
-      final params = await _equalizer.parameters;
+      final params = await _hardwareEqualizer.parameters;
       _eqReady = true;
 
       final gains = settings.eqGains;
@@ -367,12 +425,36 @@ class FathomPlayer extends ChangeNotifier {
           await band.setGain(clamped);
         }
       }
-      await _equalizer.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
+      await _hardwareEqualizer.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
     } catch (_) {
       _eqReady = false;
       _eqApplied = false;
     }
     notifyListeners();
+  }
+
+  Future<void> _applyNativeEqualizer() async {
+    if (!_nativeEqReady) return;
+    try {
+      final gains = settings.eqGains;
+      final preset = settings.get<String?>(SettingKey.eqPreset);
+      final presetGains = preset != null ? kEqPresetGains10[preset] : null;
+
+      final target = List<double>.generate(kEq10Bands.length, (i) {
+        final hz = kEq10Bands[i];
+        double? db = gains[hz];
+        if (db == null && presetGains != null) db = presetGains[i];
+        db ??= 0.0;
+        final clamped = db.clamp(
+          FathomNativeEqualizer.minDecibels,
+          FathomNativeEqualizer.maxDecibels,
+        );
+        return clamped;
+      });
+
+      await _nativeEq.setGains(target);
+      await _nativeEq.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
+    } catch (_) {}
   }
 
   Future<void> _startPlayback() async {

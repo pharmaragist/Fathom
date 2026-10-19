@@ -7,6 +7,7 @@ import '../common/constants.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/glass.dart';
+import '../services/equalizer.dart';
 
 class EqualizerPage extends StatefulWidget {
   const EqualizerPage({super.key});
@@ -60,7 +61,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
           const SizedBox(height: 12),
           Expanded(
             child: player.eqReady
-                ? _BandsCard(accent: accent)
+                ? _BandsCard(accent: accent, player: player)
                 : _LockedCard(accent: accent),
           ),
         ],
@@ -217,19 +218,43 @@ class _PresetChip extends StatelessWidget {
 }
 
 class _BandsCard extends StatelessWidget {
-  const _BandsCard({required this.accent});
+  const _BandsCard({required this.accent, required this.player});
   final Color accent;
+  final FathomPlayer player;
 
   @override
   Widget build(BuildContext context) {
-    final player = context.read<FathomPlayer>();
+    if (player.usingNativeEqualizer) {
+      return GlassContainer(
+        radius: 24,
+        bgOpacity: 0.08,
+        borderOpacity: 0.07,
+        padding: const EdgeInsets.fromLTRB(8, 24, 8, 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < kEq10Bands.length; i++)
+              Expanded(
+                child: _NativeBandColumn(
+                  index: i,
+                  centerFrequency: kEq10Bands[i],
+                  minDb: FathomNativeEqualizer.minDecibels,
+                  maxDb: FathomNativeEqualizer.maxDecibels,
+                  accent: accent,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     return GlassContainer(
       radius: 24,
       bgOpacity: 0.08,
       borderOpacity: 0.07,
       padding: const EdgeInsets.fromLTRB(8, 24, 8, 20),
       child: FutureBuilder<AndroidEqualizerParameters?>(
-        future: player.equalizer.parameters,
+        future: player.hardwareEqualizer.parameters,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(
@@ -256,6 +281,17 @@ class _BandsCard extends StatelessWidget {
             );
           }
           final bands = params.bands;
+          if (bands.isEmpty) {
+            return Center(
+              child: Text(
+                'Equalizer unavailable on this device.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            );
+          }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -396,6 +432,86 @@ class _BandColumn extends StatelessWidget {
   }
 }
 
+class _NativeBandColumn extends StatelessWidget {
+  const _NativeBandColumn({
+    required this.index,
+    required this.centerFrequency,
+    required this.minDb,
+    required this.maxDb,
+    required this.accent,
+  });
+
+  final int index;
+  final int centerFrequency;
+  final double minDb;
+  final double maxDb;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = context.read<FathomPlayer>();
+    final hz = centerFrequency;
+    return StreamBuilder<double>(
+      stream: player.audioPlayer.playbackEventStream.map(
+        (_) => (context.read<FathomSettings>().eqGains[hz] ?? 0.0)
+            .clamp(minDb, maxDb)
+            .toDouble(),
+      ),
+      initialData: (context.read<FathomSettings>().eqGains[hz] ?? 0.0)
+          .clamp(minDb, maxDb)
+          .toDouble(),
+      builder: (context, snap) {
+        final gain = (snap.data ?? 0.0).clamp(minDb, maxDb);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Column(
+            children: [
+              Text(
+                _formatDb(gain),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: gain.abs() < 0.05
+                      ? Colors.white.withValues(alpha: 0.35)
+                      : accent,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: _VerticalSlider(
+                  value: gain,
+                  min: minDb,
+                  max: maxDb,
+                  accent: accent,
+                  onChanged: (v) => player.setBandGain(hz, v),
+                  onChangeEnd: (v) => player.setBandGain(hz, v, persist: true),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                frequencyLabel(hz),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.1,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDb(double v) {
+    final sign = v > 0.05 ? '+' : '';
+    return '$sign${v.toStringAsFixed(1)}';
+  }
+}
+
 class _VerticalSlider extends StatefulWidget {
   const _VerticalSlider({
     required this.value,
@@ -447,6 +563,7 @@ class _VerticalSliderState extends State<_VerticalSlider> {
           },
           onTapUp: (_) {
             setState(() => _active = false);
+            if (!mounted) return;
             widget.onChangeEnd(_last);
           },
           onTapCancel: () {
@@ -463,6 +580,7 @@ class _VerticalSliderState extends State<_VerticalSlider> {
           },
           onVerticalDragEnd: (_) {
             setState(() => _active = false);
+            if (!mounted) return;
             widget.onChangeEnd(_last);
           },
           child: Stack(

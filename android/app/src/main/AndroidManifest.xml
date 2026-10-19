@@ -22,7 +22,7 @@
         android:maxSdkVersion="30" />
 
     <application
-        android:label="fathom"
+        android:label="Fathom"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
