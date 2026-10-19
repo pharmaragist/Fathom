@@ -6,7 +6,9 @@ import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 import '../common/constants.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
+import '../components/flat_slider.dart';
 import '../components/glass.dart';
+import '../services/autoeq.dart';
 import '../services/equalizer.dart';
 
 class EqualizerPage extends StatefulWidget {
@@ -112,7 +114,10 @@ class _ControlsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eqEnabled = settings.get<bool>(SettingKey.eqEnabled);
-    final currentPreset = settings.get<String?>(SettingKey.eqPreset);
+    final current = settings.get<String?>(SettingKey.eqPreset);
+    final builtIn = current != null ? kBuiltInEqPresets[current] : null;
+    final saved = current != null ? settings.eqPresets[current] : null;
+    final editing = (builtIn != null || saved != null) ? current : null;
 
     return GlassContainer(
       radius: 24,
@@ -154,18 +159,58 @@ class _ControlsCard extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                for (final preset in kEqPresets)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _PresetChip(
-                      label: preset,
-                      selected: currentPreset == preset,
-                      accent: accent,
-                      onTap: () {
-                        context.read<FathomPlayer>().applyEqPreset(preset);
-                      },
-                    ),
+                _PresetActionChip(
+                  icon: TablerIcons.cloudDownload,
+                  label: 'Get',
+                  accent: accent,
+                  onTap: () => showAutoEqSheet(context, accent: accent),
+                ),
+                const SizedBox(width: 8),
+                _PresetActionChip(
+                  icon: editing != null
+                      ? TablerIcons.pencil
+                      : TablerIcons.bookmarkPlus,
+                  label: editing != null ? 'Edit' : 'Save',
+                  accent: accent,
+                  onTap: () => showEqPresetSheet(
+                    context,
+                    accent: accent,
+                    editing: editing,
                   ),
+                ),
+                for (final name in kBuiltInEqPresets.keys) ...[
+                  const SizedBox(width: 8),
+                  _PresetChip(
+                    label: name,
+                    selected: current == name,
+                    accent: accent,
+                    onTap: () {
+                      context.read<FathomPlayer>().applyEqPreset(name);
+                    },
+                  ),
+                ],
+                for (final name in settings.eqPresetNames(EqPresetSource.user)) ...[
+                  const SizedBox(width: 8),
+                  _PresetChip(
+                    label: name,
+                    selected: current == name,
+                    accent: accent,
+                    onTap: () {
+                      context.read<FathomPlayer>().applyEqPreset(name);
+                    },
+                  ),
+                ],
+                for (final name in settings.eqPresetNames(EqPresetSource.autoEq)) ...[
+                  const SizedBox(width: 8),
+                  _PresetChip(
+                    label: name,
+                    selected: current == name,
+                    accent: accent,
+                    onTap: () {
+                      context.read<FathomPlayer>().applyEqPreset(name);
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -217,6 +262,709 @@ class _PresetChip extends StatelessWidget {
   }
 }
 
+class _PresetActionChip extends StatelessWidget {
+  const _PresetActionChip({
+    required this.icon,
+    required this.label,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: accent.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: accent),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the preset sheet and applies its result to the player.
+///
+/// Pass [editing] with the name of the selected user preset to rename, update
+/// or delete it instead of saving a new one.
+Future<void> showEqPresetSheet(
+  BuildContext context, {
+  required Color accent,
+  String? editing,
+}) async {
+  final player = context.read<FathomPlayer>();
+  final taken = context.read<FathomSettings>().eqPresets.keys.toSet();
+
+  final draft = await showModalBottomSheet<_PresetDraft>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          child: GlassContainer(
+            radius: 28,
+            accent: accent,
+            shadow: true,
+            child: _PresetSheet(accent: accent, editing: editing, taken: taken),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  if (draft == null) return;
+
+  if (draft.deleted) {
+    player.deleteEqPreset(draft.name);
+  } else {
+    player.saveEqPreset(draft.name, replacing: editing);
+  }
+}
+
+/// Outcome of the preset sheet.
+class _PresetDraft {
+  const _PresetDraft.save(this.name) : deleted = false;
+  const _PresetDraft.delete(this.name) : deleted = true;
+
+  final String name;
+  final bool deleted;
+}
+
+class _PresetSheet extends StatefulWidget {
+  const _PresetSheet({
+    required this.accent,
+    required this.editing,
+    required this.taken,
+  });
+
+  final Color accent;
+  final String? editing;
+  final Set<String> taken;
+
+  @override
+  State<_PresetSheet> createState() => _PresetSheetState();
+}
+
+class _PresetSheetState extends State<_PresetSheet> {
+  late final TextEditingController _name;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.editing ?? '')
+      ..addListener(_onNameChanged);
+  }
+
+  @override
+  void dispose() {
+    _name
+      ..removeListener(_onNameChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onNameChanged() => setState(() {});
+
+  String get _trimmed => _name.text.trim();
+
+  /// Validation message for the typed name, or null when it is usable.
+  String? get _error {
+    if (_trimmed.isEmpty) return null;
+    if (kBuiltInEqPresets.containsKey(_trimmed)) {
+      return 'That name is used by a built-in preset.';
+    }
+    if (widget.editing != null &&
+        _trimmed != widget.editing &&
+        widget.taken.contains(_trimmed)) {
+      return 'Another preset already uses that name.';
+    }
+    return null;
+  }
+
+  bool get _canSave => _trimmed.isNotEmpty && _error == null;
+  bool get _overwrites =>
+      widget.editing == null && widget.taken.contains(_trimmed);
+
+  void _submit() {
+    if (!_canSave) return;
+    Navigator.of(context).pop(_PresetDraft.save(_trimmed));
+  }
+
+  Future<void> _delete() async {
+    final name = widget.editing;
+    if (name == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: GlassContainer.surface,
+        title: const Text(
+          'Delete preset?',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        content: Text(
+          '"$name" will be removed. This cannot be undone.',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.75)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    Navigator.of(context).pop(_PresetDraft.delete(name));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = widget.editing != null;
+
+    return Material(
+      type: MaterialType.transparency,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              editing ? 'Edit preset' : 'Save preset',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Stores the ten bands and the preamp under a name.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Colors.white.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              cursorColor: widget.accent,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Preset name',
+                hintStyle: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.06),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: widget.accent.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+            if (_error != null || _overwrites) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error ?? 'Replaces the existing "$_trimmed" preset.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _error != null
+                      ? Colors.orangeAccent
+                      : Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                if (editing)
+                  _SheetButton(
+                    label: 'Delete',
+                    icon: TablerIcons.trash,
+                    color: Colors.redAccent,
+                    onTap: _delete,
+                  ),
+                const Spacer(),
+                _SheetButton(
+                  label: 'Cancel',
+                  color: Colors.white.withValues(alpha: 0.75),
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 8),
+                _SheetButton(
+                  label: editing ? 'Update' : 'Save',
+                  filled: true,
+                  color: widget.accent,
+                  enabled: _canSave,
+                  onTap: _submit,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetButton extends StatelessWidget {
+  const _SheetButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.icon,
+    this.filled = false,
+    this.enabled = true,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final bool filled;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = filled ? Colors.black : color;
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.35,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            color: filled
+                ? color.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: foreground),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: foreground,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the AutoEQ browser and stores the picked result as a preset.
+///
+/// The catalogue is fetched on demand, so the panel needs a connection; a
+/// failed download keeps the sheet open with a retry.
+Future<void> showAutoEqSheet(
+  BuildContext context, {
+  required Color accent,
+}) async {
+  final player = context.read<FathomPlayer>();
+
+  final picked = await showModalBottomSheet<AutoEqPreset>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.55,
+            child: GlassContainer(
+              radius: 28,
+              accent: accent,
+              shadow: true,
+              child: _AutoEqSheet(accent: accent),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  if (picked == null) return;
+  player.addEqPreset(picked.name, picked.preset);
+}
+
+class _AutoEqSheet extends StatefulWidget {
+  const _AutoEqSheet({required this.accent});
+
+  final Color accent;
+
+  @override
+  State<_AutoEqSheet> createState() => _AutoEqSheetState();
+}
+
+class _AutoEqSheetState extends State<_AutoEqSheet> {
+  /// Most results a single query renders. Deeper matches need a tighter query.
+  static const int _maxResults = 80;
+
+  final TextEditingController _query = TextEditingController();
+  late Future<List<AutoEqEntry>> _index;
+
+  /// The result currently being downloaded, if any.
+  AutoEqEntry? _fetching;
+  String? _failure;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = FathomAutoEq.instance.entries();
+    _query.addListener(_onQueryChanged);
+  }
+
+  @override
+  void dispose() {
+    _query
+      ..removeListener(_onQueryChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged() => setState(() => _failure = null);
+
+  void _retry() {
+    setState(() {
+      _failure = null;
+      _index = FathomAutoEq.instance.entries();
+    });
+  }
+
+  List<AutoEqEntry> _matches(List<AutoEqEntry> all) {
+    final terms = _query.text
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((term) => term.isNotEmpty);
+    if (terms.isEmpty) return all.take(_maxResults).toList();
+
+    final hits = <AutoEqEntry>[];
+    for (final entry in all) {
+      final name = entry.name.toLowerCase();
+      if (terms.every(name.contains)) {
+        hits.add(entry);
+        if (hits.length == _maxResults) break;
+      }
+    }
+    return hits;
+  }
+
+  Future<void> _pick(AutoEqEntry entry) async {
+    if (_fetching != null) return;
+
+    setState(() {
+      _fetching = entry;
+      _failure = null;
+    });
+
+    try {
+      final preset = await FathomAutoEq.instance.fetch(entry);
+      if (!mounted) return;
+      Navigator.of(context).pop(AutoEqPreset(name: entry.name, preset: preset));
+    } on AutoEqException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _fetching = null;
+        _failure = e.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'AutoEQ',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Measured headphone corrections, stored as a preset.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _query,
+            textInputAction: TextInputAction.search,
+            cursorColor: widget.accent,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Search a headphone model',
+              prefixIcon: Icon(
+                TablerIcons.search,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.4),
+              ),
+              hintStyle: TextStyle(
+                fontSize: 15,
+                color: Colors.white.withValues(alpha: 0.35),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.06),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          if (_failure != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _failure!,
+              style: const TextStyle(fontSize: 12, color: Colors.orangeAccent),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Expanded(
+            child: FutureBuilder<List<AutoEqEntry>>(
+              future: _index,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white38,
+                      ),
+                    ),
+                  );
+                }
+
+                if (snap.hasError) {
+                  final error = snap.error;
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          error is AutoEqException
+                              ? error.message
+                              : 'AutoEQ is unavailable right now.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _SheetButton(
+                          label: 'Retry',
+                          icon: TablerIcons.refresh,
+                          filled: true,
+                          color: widget.accent,
+                          onTap: _retry,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final hits = _matches(snap.data!);
+                if (hits.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No headphone matches that search.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: hits.length,
+                  itemBuilder: (context, i) => _AutoEqRow(
+                    entry: hits[i],
+                    accent: widget.accent,
+                    busy: identical(_fetching, hits[i]),
+                    onTap: () => _pick(hits[i]),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoEqRow extends StatelessWidget {
+  const _AutoEqRow({
+    required this.entry,
+    required this.accent,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final AutoEqEntry entry;
+  final Color accent;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.origin,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (busy)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: accent),
+              )
+            else
+              Icon(
+                TablerIcons.plus,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.35),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BandsCard extends StatelessWidget {
   const _BandsCard({required this.accent, required this.player});
   final Color accent;
@@ -229,20 +977,31 @@ class _BandsCard extends StatelessWidget {
         radius: 24,
         bgOpacity: 0.08,
         borderOpacity: 0.07,
-        padding: const EdgeInsets.fromLTRB(8, 24, 8, 20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.fromLTRB(8, 18, 8, 20),
+        child: Column(
           children: [
-            for (var i = 0; i < kEq10Bands.length; i++)
-              Expanded(
-                child: _NativeBandColumn(
-                  index: i,
-                  centerFrequency: kEq10Bands[i],
-                  minDb: FathomNativeEqualizer.minDecibels,
-                  maxDb: FathomNativeEqualizer.maxDecibels,
-                  accent: accent,
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: _PreampRow(accent: accent),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < kEq10Bands.length; i++)
+                    Expanded(
+                      child: _NativeBandColumn(
+                        index: i,
+                        centerFrequency: kEq10Bands[i],
+                        minDb: FathomNativeEqualizer.minDecibels,
+                        maxDb: FathomNativeEqualizer.maxDecibels,
+                        accent: accent,
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       );
@@ -397,16 +1156,20 @@ class _BandColumn extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Expanded(
-                child: _VerticalSlider(
-                  value: gain,
-                  min: minDb,
-                  max: maxDb,
-                  accent: accent,
-                  onChanged: (v) =>
-                      player.setBandGain(band.centerFrequency.round(), v),
-                  onChangeEnd: (v) => player.setBandGain(
-                      band.centerFrequency.round(), v,
-                      persist: true),
+                child: FlatSlider(
+                  vertical: true,
+                  value: (gain - minDb) / (maxDb - minDb),
+                  origin: -minDb / (maxDb - minDb),
+                  color: accent,
+                  onChanged: (t) => player.setBandGain(
+                    band.centerFrequency.round(),
+                    minDb + t * (maxDb - minDb),
+                  ),
+                  onChangeEnd: (t) => player.setBandGain(
+                    band.centerFrequency.round(),
+                    minDb + t * (maxDb - minDb),
+                    persist: true,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -432,7 +1195,101 @@ class _BandColumn extends StatelessWidget {
   }
 }
 
-class _NativeBandColumn extends StatelessWidget {
+/// Horizontal preamp control shown above the ten vertical bands.
+///
+/// Mirrors the band columns: `FathomSettings.stageEqPreamp` does not notify
+/// listeners, so the value is held locally and re-read from the model whenever
+/// the page rebuilds (presets, resets, toggling the equalizer).
+class _PreampRow extends StatefulWidget {
+  const _PreampRow({required this.accent});
+
+  final Color accent;
+
+  @override
+  State<_PreampRow> createState() => _PreampRowState();
+}
+
+class _PreampRowState extends State<_PreampRow> {
+  static const double _max = FathomNativeEqualizer.maxPreampDecibels;
+
+  double _db = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _db = _storedDb();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PreampRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _db = _storedDb();
+  }
+
+  double _storedDb() =>
+      context.read<FathomSettings>().eqPreamp.clamp(-_max, _max).toDouble();
+
+  void _onChanged(double t) {
+    final db = t * 2 * _max - _max;
+    setState(() => _db = db);
+    context.read<FathomPlayer>().setPreamp(db);
+  }
+
+  void _onChangeEnd(double t) {
+    context.read<FathomPlayer>().setPreamp(t * 2 * _max - _max, persist: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.accent;
+    final db = _db;
+    final sign = db > 0.05 ? '+' : '';
+
+    return Row(
+      children: [
+        Icon(TablerIcons.adjustmentsHorizontal, size: 16, color: accent),
+        const SizedBox(width: 10),
+        const Text(
+          'Preamp',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: FlatSlider(
+            value: (db + _max) / (2 * _max),
+            origin: 0.5,
+            color: accent,
+            onChanged: _onChanged,
+            onChangeEnd: _onChangeEnd,
+          ),
+        ),
+        const SizedBox(width: 14),
+        SizedBox(
+          width: 40,
+          child: Text(
+            '$sign${db.toStringAsFixed(1)}',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: db.abs() < 0.05
+                  ? Colors.white.withValues(alpha: 0.35)
+                  : accent,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NativeBandColumn extends StatefulWidget {
   const _NativeBandColumn({
     required this.index,
     required this.centerFrequency,
@@ -448,249 +1305,91 @@ class _NativeBandColumn extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) {
-    final player = context.read<FathomPlayer>();
-    final hz = centerFrequency;
-    return StreamBuilder<double>(
-      stream: player.audioPlayer.playbackEventStream.map(
-        (_) => (context.read<FathomSettings>().eqGains[hz] ?? 0.0)
-            .clamp(minDb, maxDb)
-            .toDouble(),
-      ),
-      initialData: (context.read<FathomSettings>().eqGains[hz] ?? 0.0)
-          .clamp(minDb, maxDb)
-          .toDouble(),
-      builder: (context, snap) {
-        final gain = (snap.data ?? 0.0).clamp(minDb, maxDb);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Column(
-            children: [
-              Text(
-                _formatDb(gain),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.1,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  color: gain.abs() < 0.05
-                      ? Colors.white.withValues(alpha: 0.35)
-                      : accent,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: _VerticalSlider(
-                  value: gain,
-                  min: minDb,
-                  max: maxDb,
-                  accent: accent,
-                  onChanged: (v) => player.setBandGain(hz, v),
-                  onChangeEnd: (v) => player.setBandGain(hz, v, persist: true),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                frequencyLabel(hz),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.1,
-                  color: Colors.white.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _formatDb(double v) {
-    final sign = v > 0.05 ? '+' : '';
-    return '$sign${v.toStringAsFixed(1)}';
-  }
+  State<_NativeBandColumn> createState() => _NativeBandColumnState();
 }
 
-class _VerticalSlider extends StatefulWidget {
-  const _VerticalSlider({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.accent,
-    required this.onChanged,
-    required this.onChangeEnd,
-  });
-
-  final double value;
-  final double min;
-  final double max;
-  final Color accent;
-  final ValueChanged<double> onChanged;
-  final ValueChanged<double> onChangeEnd;
+class _NativeBandColumnState extends State<_NativeBandColumn> {
+  /// Local mirror of the stored gain.
+  ///
+  /// `FathomSettings.stageEqGain` deliberately does not notify listeners, so the
+  /// column cannot rely on a provider rebuild while the user drags. It keeps the
+  /// value itself and re-reads the model whenever the page rebuilds (presets,
+  /// resets, toggling the equalizer).
+  double _gain = 0;
 
   @override
-  State<_VerticalSlider> createState() => _VerticalSliderState();
-}
+  void initState() {
+    super.initState();
+    _gain = _storedGain();
+  }
 
-class _VerticalSliderState extends State<_VerticalSlider> {
-  bool _active = false;
-  double _last = 0;
+  @override
+  void didUpdateWidget(covariant _NativeBandColumn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _gain = _storedGain();
+  }
 
-  double _valueAt(Offset local, double height) {
-    if (height <= 0) return widget.min;
-    final t = 1 - (local.dy / height).clamp(0.0, 1.0);
-    return widget.min + t * (widget.max - widget.min);
+  double _storedGain() {
+    final stored =
+        context.read<FathomSettings>().eqGains[widget.centerFrequency];
+    return (stored ?? 0.0).clamp(widget.minDb, widget.maxDb).toDouble();
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        final h = c.maxHeight;
-        final range = widget.max - widget.min;
-        final t = range <= 0
-            ? 0.0
-            : ((widget.value - widget.min) / range).clamp(0.0, 1.0);
-        final thumbY = (1 - t) * h;
+    final hz = widget.centerFrequency;
+    final accent = widget.accent;
+    final gain = _gain;
+    final sign = gain > 0.05 ? '+' : '';
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (d) {
-            _last = _valueAt(d.localPosition, h);
-            setState(() => _active = true);
-            widget.onChanged(_last);
-          },
-          onTapUp: (_) {
-            setState(() => _active = false);
-            if (!mounted) return;
-            widget.onChangeEnd(_last);
-          },
-          onTapCancel: () {
-            if (_active) setState(() => _active = false);
-          },
-          onVerticalDragStart: (d) {
-            _last = _valueAt(d.localPosition, h);
-            setState(() => _active = true);
-            widget.onChanged(_last);
-          },
-          onVerticalDragUpdate: (d) {
-            _last = _valueAt(d.localPosition, h);
-            widget.onChanged(_last);
-          },
-          onVerticalDragEnd: (_) {
-            setState(() => _active = false);
-            if (!mounted) return;
-            widget.onChangeEnd(_last);
-          },
-          child: Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _SliderTrackPainter(
-                    value: widget.value,
-                    min: widget.min,
-                    max: widget.max,
-                    accent: widget.accent,
-                    active: _active,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: (thumbY - 11).clamp(0, h - 22),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  curve: Curves.easeOut,
-                  width: _active ? 22 : 16,
-                  height: _active ? 22 : 16,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                      if (_active)
-                        BoxShadow(
-                          color: widget.accent.withValues(alpha: 0.5),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        children: [
+          Text(
+            '$sign${gain.toStringAsFixed(1)}',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: gain.abs() < 0.05
+                  ? Colors.white.withValues(alpha: 0.35)
+                  : accent,
+            ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _SliderTrackPainter extends CustomPainter {
-  _SliderTrackPainter({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.accent,
-    required this.active,
-  });
-
-  final double value;
-  final double min;
-  final double max;
-  final Color accent;
-  final bool active;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-    final range = max - min;
-    if (range <= 0) return;
-
-    final t = ((value - min) / range).clamp(0.0, 1.0);
-    final zeroT = ((0.0 - min) / range).clamp(0.0, 1.0);
-    final thumbY = (1 - t) * h;
-    final zeroY = (1 - zeroT) * h;
-
-    final trackPaint = Paint()..color = Colors.white.withValues(alpha: 0.10);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - 1.5, 0, 3, h),
-        const Radius.circular(99),
+          const SizedBox(height: 10),
+          const SizedBox(height: 10),
+          Expanded(
+            child: FlatSlider(
+              vertical: true,
+              value: (gain - widget.minDb) / (widget.maxDb - widget.minDb),
+              origin: -widget.minDb / (widget.maxDb - widget.minDb),
+              color: accent,
+              onChanged: (t) {
+                final db = widget.minDb + t * (widget.maxDb - widget.minDb);
+                setState(() => _gain = db);
+                context.read<FathomPlayer>().setBandGain(hz, db);
+              },
+              onChangeEnd: (t) {
+                final db = widget.minDb + t * (widget.maxDb - widget.minDb);
+                context.read<FathomPlayer>().setBandGain(hz, db, persist: true);
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            frequencyLabel(hz),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+              color: Colors.white.withValues(alpha: 0.4),
+            ),
+          ),
+        ],
       ),
-      trackPaint,
     );
-
-    final fillTop = thumbY < zeroY ? thumbY : zeroY;
-    final fillBottom = thumbY < zeroY ? zeroY : thumbY;
-    if (fillBottom - fillTop > 0.5) {
-      final fillPaint = Paint()..color = accent;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(cx - 1.5, fillTop, 3, fillBottom - fillTop),
-          const Radius.circular(99),
-        ),
-        fillPaint,
-      );
-    }
-
-    final zeroPaint = Paint()
-      ..color = Colors.white.withValues(alpha: active ? 0.25 : 0.15);
-    canvas.drawRect(Rect.fromLTWH(0, zeroY - 0.5, w, 1), zeroPaint);
   }
-
-  @override
-  bool shouldRepaint(covariant _SliderTrackPainter old) =>
-      old.value != value ||
-      old.active != active ||
-      old.accent != accent ||
-      old.min != min ||
-      old.max != max;
 }
+

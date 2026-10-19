@@ -292,7 +292,6 @@ class _CoverCarouselState extends State<_CoverCarousel> {
 
 class _CoverArt extends StatelessWidget {
   const _CoverArt({
-    super.key,
     required this.track,
     required this.side,
     required this.isActive,

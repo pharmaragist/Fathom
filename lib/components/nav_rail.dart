@@ -42,6 +42,7 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
 
   bool _isSearching = false;
   Timer? _debounce;
+  final FocusNode _searchFocus = FocusNode();
 
   static const _items = [
     (label: 'Library', icon: TablerIcons.discFilled),
@@ -49,9 +50,24 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
+    _searchFocus.removeListener(_onSearchFocusChanged);
+    _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// Collapses the search rail as soon as the query field loses focus, so the
+  /// bar does not linger after tapping outside it, submitting, or dismissing the
+  /// keyboard.
+  void _onSearchFocusChanged() {
+    if (!_searchFocus.hasFocus && _isSearching) _toggleSearch(false);
   }
 
   void _onQueryChanged(String value) {
@@ -70,8 +86,20 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
 
   void _toggleSearch(bool active) {
     _debounce?.cancel();
-    setState(() => _isSearching = active);
-    if (!active) widget.onSearchCleared();
+    if (active) {
+      setState(() => _isSearching = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+      return;
+    }
+
+    final wasSearching = _isSearching;
+    setState(() => _isSearching = false);
+    // Drop focus after clearing the flag so the focus listener does not
+    // re-enter this branch.
+    _searchFocus.unfocus();
+    if (wasSearching) widget.onSearchCleared();
   }
 
   Widget _switcherLayout(Widget? current, List<Widget> previous) {
@@ -175,6 +203,7 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
                                   onChanged: _onQueryChanged,
                                   onSubmitted: _onQuerySubmitted,
                                   onClose: () => _toggleSearch(false),
+                                  focusNode: _searchFocus,
                                 )
                               : Row(
                                   key: const ValueKey('nav_mode'),
@@ -227,6 +256,7 @@ class _NavSearchContent extends StatelessWidget {
     required this.onChanged,
     required this.onSubmitted,
     required this.onClose,
+    required this.focusNode,
   });
 
   final TextEditingController controller;
@@ -236,6 +266,7 @@ class _NavSearchContent extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClose;
+  final FocusNode focusNode;
 
   void _handleTrailing() {
     if (controller.text.isEmpty) {
@@ -258,7 +289,7 @@ class _NavSearchContent extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
-              autofocus: true,
+              focusNode: focusNode,
               onChanged: onChanged,
               onSubmitted: (value) {
                 onSubmitted(value);

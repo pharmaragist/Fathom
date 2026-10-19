@@ -23,6 +23,7 @@ class FathomPlayer extends ChangeNotifier {
       _audioPlayer.currentIndexStream.listen(_onIndexChanged),
       _audioPlayer.playingStream.listen((_) => _onPlayerStateUpdate()),
       _audioPlayer.processingStateStream.listen((_) => _onPlayerStateUpdate()),
+      _audioPlayer.androidAudioSessionIdStream.listen((_) => ensureEqReady()),
     ]);
   }
 
@@ -300,6 +301,17 @@ class FathomPlayer extends ChangeNotifier {
     if (persist) settings.commitEq();
   }
 
+  /// Sets the preamp (input gain) used by the native equalizer, in decibels.
+  ///
+  /// The hardware fallback has no preamp stage, so this is a no-op there.
+  void setPreamp(double db, {bool persist = false}) {
+    final clamped =
+        db.clamp(-FathomNativeEqualizer.maxPreampDecibels, FathomNativeEqualizer.maxPreampDecibels);
+    if (_nativeEqReady) unawaited(_nativeEq.setPreamp(clamped));
+    settings.stageEqPreamp(clamped);
+    if (persist) settings.commitEq();
+  }
+
   Future<void> _setBandGain(int centerHz, double db) async {
     if (_nativeEqReady) {
       final idx = kEq10Bands.indexOf(centerHz);
@@ -316,15 +328,27 @@ class FathomPlayer extends ChangeNotifier {
   }
 
   Future<void> applyEqPreset(String preset) async {
-    if (!kEqPresetGains10.containsKey(preset)) return;
+    final presetGains = _presetGains(preset);
+    if (presetGains == null) return;
+
     settings.set<String?>(SettingKey.eqPreset, preset);
-    if (!_eqReady) return;
+
+    final preamp = settings.eqPresetFor(preset)?.preamp;
+    if (preamp != null) settings.stageEqPreamp(preamp);
+
+    if (!_eqReady) {
+      if (preamp != null) {
+        settings.stageEqPreamp(preamp);
+        settings.commitEq();
+      }
+      notifyListeners();
+      return;
+    }
 
     try {
-      final gains10 = kEqPresetGains10[preset]!;
       if (_nativeEqReady) {
         final target = List<double>.generate(kEq10Bands.length, (i) {
-          final db = gains10[i];
+          final db = presetGains[i];
           final clamped = db.clamp(
             FathomNativeEqualizer.minDecibels,
             FathomNativeEqualizer.maxDecibels,
@@ -332,6 +356,7 @@ class FathomPlayer extends ChangeNotifier {
           return clamped;
         });
         await _nativeEq.setGains(target);
+        if (preamp != null) await _nativeEq.setPreamp(preamp);
         for (var i = 0; i < kEq10Bands.length; i++) {
           settings.stageEqGain(kEq10Bands[i], target[i]);
         }
@@ -340,7 +365,7 @@ class FathomPlayer extends ChangeNotifier {
         for (final band in params.bands) {
           final hz = band.centerFrequency.toInt();
           final idx = kEq10Bands.indexOf(hz);
-          final db = idx != -1 ? gains10[idx] : 0.0;
+          final db = idx != -1 ? presetGains[idx] : 0.0;
           final clamped =
               db.clamp(params.minDecibels, params.maxDecibels).toDouble();
           await band.setGain(clamped);
@@ -350,6 +375,53 @@ class FathomPlayer extends ChangeNotifier {
       settings.commitEq();
     } catch (_) {}
     notifyListeners();
+  }
+
+  /// The live ten band gains in [kEq10Bands] order, favouring explicit band
+  /// overrides and falling back to the selected preset.
+  List<double> _bandGains10() {
+    final gains = settings.eqGains;
+    final presetGains = _presetGains(settings.get<String?>(SettingKey.eqPreset));
+    return [
+      for (var i = 0; i < kEq10Bands.length; i++)
+        gains[kEq10Bands[i]] ?? presetGains?[i] ?? 0.0,
+    ];
+  }
+
+  /// Saves the live curve under [name] and selects it.
+  ///
+  /// Pass [replacing] to rename an existing preset instead of adding one.
+  void saveEqPreset(String name, {String? replacing}) {
+    settings.saveEqPreset(
+      name,
+      EqPreset(gains: _bandGains10(), preamp: settings.eqPreamp),
+      replacing: replacing,
+    );
+    settings.set<String?>(SettingKey.eqPreset, name);
+  }
+
+  /// Stores the imported [preset] under [name] and makes it the active curve.
+  ///
+  /// Used by the AutoEQ browser, which supplies a curve it fetched rather than
+  /// reading the live one.
+  void addEqPreset(String name, EqPreset preset) {
+    settings.saveEqPreset(name, preset);
+    unawaited(applyEqPreset(name));
+  }
+
+  /// Deletes the preset [name], clearing the selection when it was active.
+  void deleteEqPreset(String name) {
+    settings.removeEqPreset(name);
+    if (settings.get<String?>(SettingKey.eqPreset) == name) {
+      settings.set<String?>(SettingKey.eqPreset, null);
+    }
+  }
+
+  /// Band gains for [preset] in [kEq10Bands] order, or null when unknown.
+  List<double>? _presetGains(String? preset) {
+    if (preset == null) return null;
+    final def = settings.eqPresetFor(preset);
+    return def?.gains;
   }
 
   Future<void> setDeviceEqualizerEnabled(bool enabled) async {
@@ -380,35 +452,49 @@ class FathomPlayer extends ChangeNotifier {
 
   Future<void> _tryApplyEqualizer() async {
     if (_eqApplied) return;
-    _eqApplied = true;
 
-    final sessionId = _audioPlayer.androidAudioSessionId;
-    _nativeEqReady = false;
-    if (sessionId != null) {
-      try {
-        final attached = await _nativeEq.attach(
-          sessionId: sessionId,
-          bands: List<int>.of(kEq10Bands),
-        );
-        if (attached) {
-          _nativeEqReady = true;
-          await _applyNativeEqualizer();
-          _eqReady = true;
-          notifyListeners();
-          return;
-        }
-      } catch (_) {
-        _nativeEq.detach();
-      }
+    if (!await _nativeEq.isSupported()) {
+      await _applyHardwareEqualizer();
+      return;
     }
 
+    final sessionId = _audioPlayer.androidAudioSessionId;
+    if (sessionId == null) {
+      // The audio session is only created once a track loads, so retry then
+      // (see the `androidAudioSessionIdStream` subscription in the constructor).
+      return;
+    }
+
+    _nativeEqReady = false;
+    try {
+      final attached = await _nativeEq.attach(
+        sessionId: sessionId,
+        bands: List<int>.of(kEq10Bands),
+        preamp: settings.eqPreamp,
+      );
+      if (attached) {
+        _nativeEqReady = true;
+        _eqApplied = true;
+        await _applyNativeEqualizer();
+        _eqReady = true;
+        notifyListeners();
+        return;
+      }
+    } catch (_) {
+      _nativeEq.detach();
+    }
+
+    await _applyHardwareEqualizer();
+  }
+
+  Future<void> _applyHardwareEqualizer() async {
     try {
       final params = await _hardwareEqualizer.parameters;
       _eqReady = true;
 
       final gains = settings.eqGains;
       final preset = settings.get<String?>(SettingKey.eqPreset);
-      final presetGains = preset != null ? kEqPresetGains10[preset] : null;
+      final presetGains = _presetGains(preset);
 
       for (final band in params.bands) {
         final hz = band.centerFrequency.toInt();
@@ -426,6 +512,7 @@ class FathomPlayer extends ChangeNotifier {
         }
       }
       await _hardwareEqualizer.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
+      _eqApplied = true;
     } catch (_) {
       _eqReady = false;
       _eqApplied = false;
@@ -438,7 +525,7 @@ class FathomPlayer extends ChangeNotifier {
     try {
       final gains = settings.eqGains;
       final preset = settings.get<String?>(SettingKey.eqPreset);
-      final presetGains = preset != null ? kEqPresetGains10[preset] : null;
+      final presetGains = _presetGains(preset);
 
       final target = List<double>.generate(kEq10Bands.length, (i) {
         final hz = kEq10Bands[i];
@@ -453,6 +540,7 @@ class FathomPlayer extends ChangeNotifier {
       });
 
       await _nativeEq.setGains(target);
+      await _nativeEq.setPreamp(settings.eqPreamp);
       await _nativeEq.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
     } catch (_) {}
   }

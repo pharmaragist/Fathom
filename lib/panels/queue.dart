@@ -5,7 +5,6 @@ import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/flat_icon_button.dart';
-import '../models/tracks.dart';
 
 class QueuePanel extends StatelessWidget {
   const QueuePanel({super.key});

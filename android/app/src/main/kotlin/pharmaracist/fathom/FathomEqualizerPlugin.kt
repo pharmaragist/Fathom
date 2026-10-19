@@ -36,6 +36,10 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
                 engine?.setGain(index, gain)
                 result.success(null)
             }
+            "setPreamp" -> {
+                engine?.setPreamp(call.argument<Double>("gain") ?: 0.0)
+                result.success(null)
+            }
             "detach" -> {
                 release()
                 result.success(null)
@@ -50,10 +54,11 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
         val bands = call.argument<List<Int>>("bands") ?: return false
         if (bands.isEmpty()) return false
         val gain = call.argument<Double>("gain") ?: 0.0
+        val preamp = call.argument<Double>("preamp") ?: 0.0
 
         release()
         return try {
-            engine = Engine(sessionId, bands, gain)
+            engine = Engine(sessionId, bands, gain, preamp)
             true
         } catch (e: Exception) {
             Log.w(TAG, "Unable to attach DynamicsProcessing to session $sessionId", e)
@@ -67,11 +72,16 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
         engine = null
     }
 
-    private class Engine(sessionId: Int, bands: List<Int>, initialGain: Double) {
+    private class Engine(
+        sessionId: Int,
+        bands: List<Int>,
+        initialGain: Double,
+        initialPreamp: Double,
+    ) {
         private val effect: DynamicsProcessing
 
         init {
-            val config = DynamicsProcessing.Config.Builder(
+            val builder = DynamicsProcessing.Config.Builder(
                 DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                 CHANNEL_COUNT,
                 false,
@@ -81,8 +91,10 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
                 true,
                 bands.size,
                 false,
-            ).build()
+            )
+            builder.setInputGainAllChannelsTo(initialPreamp.toFloat())
 
+            val config = builder.build()
             effect = DynamicsProcessing(PRIORITY, sessionId, config)
 
             bands.forEachIndexed { index, hz ->
@@ -92,6 +104,14 @@ class FathomEqualizerPlugin : MethodChannel.MethodCallHandler {
                 } catch (e: Exception) {
                     Log.w(TAG, "Device rejected band $index ($hz Hz)", e)
                 }
+            }
+        }
+
+        fun setPreamp(db: Double) {
+            try {
+                effect.setInputGainAllChannelsTo(db.toFloat())
+            } catch (e: Exception) {
+                Log.w(TAG, "Unable to set the preamp", e)
             }
         }
 

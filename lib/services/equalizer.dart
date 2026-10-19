@@ -37,6 +37,9 @@ class FathomNativeEqualizer {
   static const double minDecibels = -12.0;
   static const double maxDecibels = 12.0;
 
+  /// Highest preamp boost the native stage accepts, in decibels.
+  static const double maxPreampDecibels = 12.0;
+
   bool _probed = false;
   bool _supported = false;
   bool _attached = false;
@@ -60,6 +63,7 @@ class FathomNativeEqualizer {
   Future<bool> attach({
     required int sessionId,
     required List<int> bands,
+    double preamp = 0.0,
   }) async {
     if (!await isSupported()) return false;
     try {
@@ -67,6 +71,7 @@ class FathomNativeEqualizer {
             'sessionId': sessionId,
             'bands': bands,
             'gain': 0.0,
+            'preamp': preamp,
           }) ??
           false;
     } catch (e) {
@@ -74,6 +79,19 @@ class FathomNativeEqualizer {
       _attached = false;
     }
     return _attached;
+  }
+
+  /// Sets the preamp (input gain) applied before the bands, in decibels.
+  Future<void> setPreamp(double db) async {
+    if (!_attached) return;
+    try {
+      await _channel.invokeMethod<void>(
+        'setPreamp',
+        <String, Object>{'gain': db},
+      );
+    } catch (e) {
+      debugPrint('Fathom: native equalizer preamp update failed: $e');
+    }
   }
 
   Future<void> setEnabled(bool enabled) async {

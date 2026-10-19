@@ -21,13 +21,14 @@ lib/
 │   ├── library.dart               // FathomLibrary: storage permission handling, media querying, art caching
 │   └── player.dart                // FathomPlayer: just_audio engine, queue management, palette extraction
 ├── services/
-│   └── audio.dart                 // FathomAudioSession & FathomAudioHandler (audio_service lockscreen controls)
+│   ├── audio.dart                 // FathomAudioSession & FathomAudioHandler (audio_service lockscreen controls)
+│   └── autoeq.dart                // FathomAutoEq: AutoEQ catalogue index and ten band result fetch/parse
 ├── panels/
 │   ├── bottom_panel.dart          // FloatingIslandPlayer: compact player island, Now Playing push
 │   └── queue.dart                 // Drag-and-drop up-next queue drawer
 ├── pages/
 │   ├── library.dart               // Track list view with alphabet scrubbing, search filtering, sort modal
-│   ├── equalizer.dart             // 10-band DSP equalizer sliders & preset switcher
+│   ├── equalizer.dart             // 10-band DSP equalizer, preset save/edit and AutoEQ import
 │   ├── playing.dart               // Full-screen Now Playing view with cover carousel & volume control
 │   └── settings.dart              // App settings interface (typography, accent swatches, gapless toggle)
 └── components/                    // UI primitives, one widget family per file
@@ -48,6 +49,7 @@ lib/
 
 | Permission | Reason |
 | --- | --- |
+| `INTERNET` | AutoEQ catalogue downloads from the equalizer page |
 | `READ_MEDIA_AUDIO` | Media store query on Android 13+ |
 | `READ_EXTERNAL_STORAGE` (`maxSdkVersion="32"`) | Media store query below Android 13 |
 | `ACCESS_MEDIA_LOCATION` | Artwork metadata access |
@@ -120,6 +122,8 @@ enum SettingKey {
 * **Derived read-only accessors**: `accent` and `repeatMode` are the sanctioned exceptions to the "no custom getters" rule in section 6.1. They encapsulate the index↔enum and index↔swatch mapping, nothing else. Do not add further getters with mutation or caching side effects.
 * **Dynamic accent resolution**: `settings.accent` returns the `PaletteGenerator`-extracted artwork accent while `useArtAccent == true` and an extracted color exists; otherwise it falls back to `FathomColors.accentSwatches[accentIndex]`.
 * **EQ gain staging**: gains are stored out-of-band in `_eqGains` (persisted under `fathom.eq.gains` as `hz#db` pairs). `stageEqGain(hz, db)` mutates the live map for immediate DSP feedback; `commitEq()` persists. `eqGains` returns an unmodifiable view.
+* **EQ preamp**: the input gain applied before the band filters is `_eqPreamp`, staged by `stageEqPreamp(db)`, persisted under `fathom.eq.preamp`, and read back as `eqPreamp`. It only reaches DSP on the native (`DynamicsProcessing`) path.
+* **EQ presets**: named curves are persisted under `fathom.eq.presets` as JSON `{"<name>": {"gains": [10 values], "preamp": db, "source": "<wire>"}}`, and the store never holds a name that collides with a built-in (`kEqPresets`). `EqPreset` is source-tagged: `EqPresetSource.user` for curves saved on the equalizer page, `EqPresetSource.autoEq` for curves imported from the AutoEQ catalogue. Both kinds go through the same `saveEqPreset(name, preset)` / `applyEqPreset(name)` path, and `eqPresetNames(source)` lets a surface render one source at a time: the equalizer chip row lists built-ins, then `user`, then `autoEq`. Presets are always `kEq10Bands` order plus a preamp, so an importer must map its curve onto those ten bands. The AutoEQ importer (`FathomAutoEq`) does exactly that: it downloads `FixedBandEQ.txt`, whose ten filters already match `kEq10Bands`, and rejects any document whose filter count or centre frequencies do not line up. Gains are clamped to `FathomNativeEqualizer.minDecibels`/`maxDecibels` and the preamp to `maxPreampDecibels`; when a document omits its own `Preamp:` the peak gain is cancelled instead.
 
 ### 3.2 `FathomLibrary` (`lib/common/library.dart`)
 
@@ -127,7 +131,7 @@ Manages system audio storage access, background scanning, and image memory cachi
 
 * **Lifecycle awareness**: uses `AppLifecycleListener` to refresh the media list when returning from background.
 * **Status pipeline**: `FathomLibraryStatus` transitions `idle` -> `permissionNeeded` / `loading` -> `ready` / `failure`.
-* **Artwork cache**: `Future<Uint8List?> artFor(int id)` is the single owner of cached album artwork bytes. It eliminates scroll stutter in lists; no other component may keep a parallel artwork cache (Known Gaps 8).
+* **Artwork cache**: `Future<Uint8List?> artFor(int id)` is the single owner of cached album artwork bytes. It eliminates scroll stutter in lists; no other component may keep a parallel artwork cache (Known Gaps 7).
 * **Artwork URI**: `Uri? artUriForTrack(FathomTrack track)` resolves the artwork content URI used by `ArtThumb` and the backdrop.
 
 ### 3.3 `FathomPlayer` (`lib/common/player.dart`)
@@ -143,12 +147,14 @@ Central audio engine linking `just_audio`, hardware DSP effects, `audio_service`
 
 ---
 
-## 4. Audio Pipeline & OS Services (`lib/services/audio.dart`)
+## 4. Audio Pipeline & OS Services (`lib/services/`)
 
 * **`FathomAudioSession`**: configures hardware output via `AudioSession.instance` set to `AudioSessionConfiguration.music()`.
 * **`FathomAudioHandler`**: subclasses `BaseAudioHandler` to interface with native OS playback services (Android MediaSession / iOS Remote Command Center).
   * `sync()` maps `just_audio` state onto an OS-level `PlaybackState`: control buttons (`skipToPrevious` / `play` / `pause` / `skipToNext`, gated by `FathomPlayer.canSkipNext` / `canSkipPrevious`), seek system actions, `playing`, `processingState`, `updatePosition`, `bufferedPosition`, `speed`, and `queueIndex`. `sync()` does **not** publish `MediaItem`; that belongs to `FathomPlayer._pushMediaItem()`.
   * Handles lock screen events: `play`, `pause`, `stop`, `skipToNext`, `skipToPrevious`, `seek`, `fastForward`, `rewind`.
+* **`FathomNativeEqualizer`** (`lib/services/equalizer.dart`): `MethodChannel('pharmaracist.fathom/equalizer')` bridge to the native ten band stage. Every call is failure tolerant; when `isSupported()` reports false the player keeps the hardware bands. Owns the gain and preamp ranges (`minDecibels`, `maxDecibels`, `maxPreampDecibels`).
+* **`FathomAutoEq`** (`lib/services/autoeq.dart`): read-only client for the public AutoEQ catalogue, reachable as the `FathomAutoEq.instance` singleton. `entries()` downloads and caches the recommended-results index for the process lifetime; `fetch(entry)` downloads one `FixedBandEQ.txt` and maps it onto `kEq10Bands`, returning a source-tagged `EqPreset`. Failures surface as `AutoEqException` with a message safe to display; the equalizer page's `Get` chip keeps its panel open so the user can retry.
 
 ---
 
@@ -184,13 +190,11 @@ tag: 'fathom-art-${track.id}'
 
 ## 7. Known Gaps (code must be fixed to match this document)
 
-1. **`lib/common/states.dart` violates the import rule.** Four lines of shared globals (`heroFromPanel`, `searchQuery`) are imported by `lib/pages/library.dart:8` and `lib/panels/bottom_panel.dart:6`, with writes at `library.dart:250,365` and `bottom_panel.dart:53,56,201,270`. Move hero-origin state onto the shell/player domain and live search state into `FathomSettings`, then delete the file.
+1. **`lib/common/states.dart` violates the import rule.** Four lines of shared globals (`heroFromPanel`, `searchQuery`) are imported by `lib/pages/library.dart:8` and `lib/panels/bottom_panel.dart:5`, with writes at `library.dart:250,365` and `bottom_panel.dart:52,55,200,269`. Move hero-origin state onto the shell/player domain and live search state into `FathomSettings`, then delete the file.
 2. **`FathomPlayer.moveAt` / `removeAt` diverge from the engine queue.** `player.dart:174-211` rewrites only `_sourceQueue`. The `AudioPlayer` playlist is never reordered (`moveAudioSource`) or trimmed (`removeAudioSourceAt`), so the drawer order and the audible order disagree after an edit. Section 3.3 requires lockstep.
 3. **`fontKey` default disagreement.** `settings.dart:10` defaults to `'Oswald'`; sections 1 and 3.1 document `'System'`, and `kFontOptions = ['System', 'Oswald']` (`constants.dart:7`) lists System first. Decide the canonical default, then align code and this document.
-4. **`SettingKey.searchQuery` is dead.** Declared at `settings.dart:18`, seeded at `settings.dart:67`, never read; live search uses the global from gap 1. Fold into gap 1's migration and delete the key.
-5. **Now Playing route is inconsistent and duplicated.** The tile path uses `Curves.easeOut` (`library.dart:78`) while the panel path uses `Curves.easeInOutCubic` (`bottom_panel.dart:286`), and the route builder is written twice (`library.dart:70-98`, `bottom_panel.dart:276-290`). Section 5 requires one shared builder using `easeInOutCubic`.
-6. **Over-broad provider subscription.** `equalizer.dart:32` uses `context.watch<FathomPlayer>()` but reads only `eqReady`; use `context.select`. Convention 6.2.
-7. **Hardcoded surfaces bypass `FathomColors`.** Literal colors at `settings.dart:16,17,18,53`, `playing.dart:188,189,323`, and `glass.dart:28` (`surface = Color(0xFF111111)`) shadow `FathomColors.surface` / `GlassContainer` glass tokens (`colors.dart:19,23,24`). Convention 6.3.
-8. **Duplicate artwork cache.** `art.dart:56` keeps a static `_memCache` alongside `FathomLibrary.artFor` (`library.dart`), and `playing.dart:159` re-fetches the same bytes. `FathomLibrary.artFor` is the single owner per section 3.2.
-9. **`test/widget_test.dart` does not compile.** It pumps `const MyApp()` (`widget_test.dart:16`), which does not exist (`main.dart` exports `FathomApp`), and asserts on a counter the app never renders. Replace with a `FathomApp` smoke test or delete.
-10. **Android identity is still the Flutter placeholder.** `applicationId` and `namespace` are `com.example.fathom` (`android/app/build.gradle.kts:8,19`), with `MainActivity.kt` under `android/app/src/main/kotlin/com/example/fathom/`. Section 1 specifies `pharmaracist.fathom`, so rename both and move the Kotlin source directory. The manifest `android:label="fathom"` (`AndroidManifest.xml:25`) must also become `Fathom` to match `kAppName`.
+4. **Now Playing route is inconsistent and duplicated.** The tile path uses `Curves.easeOut` (`library.dart:78`) while the panel path uses `Curves.easeInOutCubic` (`bottom_panel.dart:286`), and the route builder is written twice (`library.dart:70-98`, `bottom_panel.dart:276-290`). Section 5 requires one shared builder using `easeInOutCubic`.
+5. **Over-broad provider subscription.** `equalizer.dart:35` uses `context.watch<FathomPlayer>()` but reads only `eqReady`; use `context.select`. Convention 6.2.
+6. **Hardcoded surfaces bypass `FathomColors`.** Literal colors at `settings.dart:16,17,18,53`, `playing.dart:188,189,323`, and `glass.dart:28` (`surface = Color(0xFF111111)`) shadow `FathomColors.surface` / `GlassContainer` glass tokens (`colors.dart:19,23,24`). Convention 6.3.
+7. **Duplicate artwork cache.** `art.dart:56` keeps a static `_memCache` alongside `FathomLibrary.artFor` (`library.dart`), and `playing.dart:159` re-fetches the same bytes. `FathomLibrary.artFor` is the single owner per section 3.2.
+8. **`test/widget_test.dart` asserts nothing.** It pumps a bare `SizedBox` and asserts that it exists, so the suite cannot catch a broken `FathomApp` startup. Replace with a `FathomApp` smoke test or delete.
