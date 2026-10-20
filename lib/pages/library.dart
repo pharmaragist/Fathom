@@ -1,18 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
+import '../common/colors.dart';
 import '../common/library.dart';
 import '../common/player.dart';
+import '../common/search.dart';
 import '../common/settings.dart';
-import '../common/states.dart';
+import '../common/toasts.dart';
 import '../components/art.dart';
-import '../components/flat_icon_button.dart';
 import '../components/glass.dart';
 import '../components/styled_list_view.dart';
+import '../components/track_actions.dart';
 import '../models/tracks.dart';
+import '../models/ytmusic.dart';
+import '../services/downloads.dart';
+import '../services/yt_source.dart';
 import 'playing.dart' show NowPlayingPage;
-import 'settings.dart';
 
 enum LibrarySort {
   titleAsc('Title A–Z'),
@@ -43,12 +49,14 @@ List<FathomTrack> _sortedBy<K extends Comparable<dynamic>>(
 List<FathomTrack> _sorted(List<FathomTrack> source, LibrarySort sort) {
   return switch (sort) {
     LibrarySort.titleAsc => _sortedBy(source, (t) => t.title.toLowerCase()),
-    LibrarySort.titleDesc => _sortedBy(source, (t) => t.title.toLowerCase(), descending: true),
+    LibrarySort.titleDesc =>
+      _sortedBy(source, (t) => t.title.toLowerCase(), descending: true),
     LibrarySort.artistAsc => _sortedBy(
         source,
         (t) => '${t.artist.toLowerCase()}\u0000${t.title.toLowerCase()}',
       ),
-    LibrarySort.newest => _sortedBy(source, (t) => t.dateAdded ?? t.id, descending: true),
+    LibrarySort.newest =>
+      _sortedBy(source, (t) => t.dateAdded ?? t.id, descending: true),
     LibrarySort.oldest => _sortedBy(source, (t) => t.dateAdded ?? t.id),
   };
 }
@@ -93,27 +101,6 @@ Route<void> nowPlayingRoute() {
   );
 }
 
-Route<void> _settingsRoute() {
-  return PageRouteBuilder<void>(
-    transitionDuration: const Duration(milliseconds: 250),
-    reverseTransitionDuration: const Duration(milliseconds: 200),
-    pageBuilder: (_, __, ___) => const SettingsPage(),
-    transitionsBuilder: (_, animation, __, child) => SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(1.0, 0.0),
-        end: Offset.zero,
-      ).animate(
-        CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        ),
-      ),
-      child: child,
-    ),
-  );
-}
-
 Future<void> chooseSortBottomSheet(
   BuildContext context,
   Color accent,
@@ -123,7 +110,7 @@ Future<void> chooseSortBottomSheet(
   final picked = await showModalBottomSheet<LibrarySort>(
     context: context,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.6),
+    barrierColor: FathomColors.scrim,
     builder: (ctx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -142,7 +129,11 @@ Future<void> chooseSortBottomSheet(
 }
 
 class LibraryPage extends StatefulWidget {
-  const LibraryPage({super.key});
+  const LibraryPage({super.key, required this.heroFromPanel});
+
+  /// Coordinates the now-playing hero with the mini player above; owned by
+  /// the shell and handed to both sides.
+  final ValueNotifier<bool> heroFromPanel;
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
@@ -160,19 +151,123 @@ class _LibraryPageState extends State<LibraryPage> {
   String? _resultQuery;
   List<FathomTrack> _result = const [];
 
+  /// Remote results for the current query. They tail the device matches so
+  /// one field searches both collections without a second screen.
+  List<FathomTrack> _ytResults = const [];
+  bool _ytSearching = false;
+  String? _ytError;
+  Timer? _ytDebounce;
+  StreamSubscription<YtItem>? _ytSub;
+
+  /// Bumped on every new query so results from a superseded stream are
+  /// dropped instead of being appended to the new answer.
+  int _ytToken = 0;
+
+  /// The shared query notifier, captured while the element still has a
+  /// provider above it.
+  ///
+  /// The page is a shell destination now, so it is disposed every time the
+  /// shell leaves for another page. `dispose()` cannot reach a provider through
+  /// `context` — the element is already deactivated by then — so the notifier it
+  /// has to unsubscribe from is held here instead.
+  ValueNotifier<String>? _query;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = context.read<FathomSearch>().query;
+    if (identical(_query, next)) return;
+    _query?.removeListener(_onQueryChanged);
+    _query = next..addListener(_onQueryChanged);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<FathomLibrary>().load(grantIfMissing: false);
+      // A query can survive a rebuild, so treat a restored one as a fresh
+      // keystroke rather than leaving the remote half empty.
+      _onQueryChanged();
     });
   }
 
   @override
   void dispose() {
+    _query?.removeListener(_onQueryChanged);
+    _ytDebounce?.cancel();
+    unawaited(_ytSub?.cancel());
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged() {
+    final query = context.read<FathomSearch>().query.value.trim();
+    _ytDebounce?.cancel();
+    if (query.isEmpty) {
+      _ytToken++;
+      unawaited(_ytSub?.cancel());
+      _ytSub = null;
+      _ytResults = const [];
+      _ytSearching = false;
+      _ytError = null;
+      return;
+    }
+    _ytDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_runSearch(query));
+    });
+  }
+
+  Future<void> _runSearch(String query) async {
+    final source = context.read<FathomPlayer>().ytSource;
+    final thrifty =
+        context.read<FathomSettings>().get<bool>(SettingKey.dataSave);
+
+    if (!source.isReady) {
+      await source.retry();
+      if (!mounted) return;
+      if (!source.isReady) {
+        setState(() => _ytError = source.error ?? 'YouTube Music is down');
+        return;
+      }
+    }
+
+    final token = ++_ytToken;
+    setState(() {
+      _ytError = null;
+      _ytSearching = true;
+      _ytResults = const [];
+    });
+
+    final collected = <FathomTrack>[];
+    final seen = <String>{};
+    final downloads = context.read<FathomDownloads>();
+    _ytSub = source
+        .search(
+      query,
+      limit: thrifty ? 12 : 24,
+      quality: thrifty ? YtQuality.low : YtQuality.high,
+    )
+        .listen(
+      (item) {
+        // A stream yields progressively, so guard the token per item; a
+        // superseded search must never repaint the new one's list.
+        if (token != _ytToken || !seen.add(item.videoId)) return;
+        // Already on the device: it arrives with the local matches instead.
+        if (downloads.isDone(item.videoId)) return;
+        collected.add(FathomTrack.yt(item));
+        setState(() => _ytResults = List.of(collected));
+      },
+      onError: (Object _) {
+        if (token != _ytToken) return;
+        setState(() => _ytSearching = false);
+      },
+      onDone: () {
+        if (token != _ytToken) return;
+        setState(() => _ytSearching = false);
+      },
+    );
   }
 
   List<FathomTrack> _visibleTracks(
@@ -214,10 +309,24 @@ class _LibraryPageState extends State<LibraryPage> {
   void _play(List<FathomTrack> tracks, int index) {
     final player = context.read<FathomPlayer>();
     final navigator = Navigator.of(context);
+    // Captured before the frame the route push starts, because the report has
+    // to be raised through a notifier that outlives this page: the page is a
+    // shell destination and may already be gone by the time the play fails.
+    final toasts = context.read<FathomToasts>();
     final started = player.playFrom(tracks, index);
     navigator.push(nowPlayingRoute());
     started.then((ok) {
-      if (!ok && navigator.mounted) navigator.maybePop();
+      // A remote track can lose its address between search and play; the
+      // player remembers why, and dropping the route silently would leave the
+      // person staring at a paused player with no explanation.
+      if (ok || !navigator.mounted) return;
+      navigator.maybePop();
+      final reason = player.lastError;
+      toasts.show(
+        reason.isEmpty ? 'Could not play this track' : reason,
+        icon: TablerIcons.alertTriangle,
+        tone: ToastTone.failure,
+      );
     });
   }
 
@@ -234,10 +343,12 @@ class _LibraryPageState extends State<LibraryPage> {
       FathomLibraryStatus.permissionNeeded => _StatusInfo(
           icon: TablerIcons.music,
           title: 'Allow audio access',
-          message: 'Fathom never uploads anything. The library is scanned locally on this device.',
+          message:
+              'Fathom never uploads anything. The library is scanned locally on this device.',
           accent: accent,
           action: 'Grant access',
-          onAction: () => context.read<FathomLibrary>().load(grantIfMissing: true),
+          onAction: () =>
+              context.read<FathomLibrary>().load(grantIfMissing: true),
         ),
       FathomLibraryStatus.failure => _StatusInfo(
           icon: TablerIcons.alertCircle,
@@ -245,7 +356,8 @@ class _LibraryPageState extends State<LibraryPage> {
           message: 'Fathom could not read the audio library.',
           accent: accent,
           action: 'Retry',
-          onAction: () => context.read<FathomLibrary>().load(grantIfMissing: false),
+          onAction: () =>
+              context.read<FathomLibrary>().load(grantIfMissing: false),
         ),
       FathomLibraryStatus.ready when !libraryHasTracks => const _StatusInfo(
           icon: TablerIcons.music,
@@ -254,63 +366,80 @@ class _LibraryPageState extends State<LibraryPage> {
         ),
       FathomLibraryStatus.ready => _StatusInfo(
           icon: TablerIcons.searchOff,
-          title: 'No matches',
-          message: 'Nothing found for "${query.trim()}".',
+          title: _ytError == null ? 'No matches' : 'YouTube search failed',
+          message: _ytError != null
+              ? '$_ytError. Try again shortly.'
+              : 'Nothing found for "${query.trim()}" on this device or YouTube.',
           accent: accent,
           action: 'Clear search',
-          onAction: () => searchQuery.value = '',
+          onAction: () => context.read<FathomSearch>().clear(),
         ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final status = context.select<FathomLibrary, FathomLibraryStatus>((l) => l.status);
-    final source = context.select<FathomLibrary, List<FathomTrack>>((l) => l.tracks);
+    final search = context.read<FathomSearch>();
+    final status =
+        context.select<FathomLibrary, FathomLibraryStatus>((l) => l.status);
+    final source =
+        context.select<FathomLibrary, List<FathomTrack>>((l) => l.tracks);
     final accent = context.select<FathomSettings, Color>((s) => s.accent);
     final sortIndex = context.select<FathomSettings, int>(
       (s) => s.get<int>(SettingKey.sortIndex),
     );
 
-    final sort = LibrarySort.values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
+    final sort =
+        LibrarySort.values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
     final viewPadding = MediaQuery.viewPaddingOf(context);
 
-    const header = Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: _Header(),
-    );
-
     return ValueListenableBuilder<String>(
-      valueListenable: searchQuery,
+      valueListenable: search.query,
       builder: (context, query, _) {
         final ready = status == FathomLibraryStatus.ready;
-        final tracks = ready ? _visibleTracks(source, sort, query) : const <FathomTrack>[];
+        final searching = query.trim().isNotEmpty;
+        final local =
+            ready ? _visibleTracks(source, sort, query) : const <FathomTrack>[];
+        // Remote results tail the local ones so one field searches both
+        // collections; both halves are played as one queue either way.
+        final tracks =
+            searching ? <FathomTrack>[...local, ..._ytResults] : local;
         final showsList = tracks.isNotEmpty;
 
-        return Padding(
-          padding: EdgeInsets.only(top: viewPadding.top + 8),
-          child: showsList
-              ? StyledListView<FathomTrack>(
-                  scrollController: _scroll,
-                  header: header,
-                  items: tracks,
-                  accent: accent,
-                  bottomInset: viewPadding.bottom + 150,
-                  labelFor: (i) => _labelFor(tracks, sort, i),
-                  itemBuilder: (context, track, i, height) => TrackTile(
-                    track: track,
-                    height: height,
-                    onTap: () => _play(tracks, i),
+        String? sectionFor(int i) =>
+            searching ? (i < local.length ? 'On device' : 'YouTube') : null;
+
+        // The header belongs to the shell now, above this body, so the list
+        // gets the whole layer and the shell's header stays reachable
+        // however far the list has moved.
+        return !showsList
+            ? (_ytSearching
+                ? Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: accent,
+                    ),
+                  )
+                : _stateView(status, source.isNotEmpty, query, accent))
+            : StyledListView<FathomTrack>(
+                scrollController: _scroll,
+                items: tracks,
+                accent: accent,
+                bottomInset: viewPadding.bottom + 150,
+                sectionFor: sectionFor,
+                labelFor: (i) => _labelFor(tracks, sort, i),
+                itemBuilder: (context, track, i, height) => TrackTile(
+                  heroFromPanel: widget.heroFromPanel,
+                  track: track,
+                  height: height,
+                  onTap: () => _play(tracks, i),
+                  onLongPress: () => showTrackActions(
+                    context,
+                    track,
+                    onPlay: () => _play(tracks, i),
                   ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    header,
-                    Expanded(child: _stateView(status, source.isNotEmpty, query, accent)),
-                  ],
                 ),
-        );
+              );
       },
     );
   }
@@ -322,11 +451,21 @@ class TrackTile extends StatelessWidget {
     required this.track,
     required this.height,
     required this.onTap,
+    this.heroFromPanel,
+    this.onLongPress,
   });
 
   final FathomTrack track;
   final double height;
   final VoidCallback onTap;
+
+  /// Coordinates the now-playing hero with the mini player above. Surfaces
+  /// that do not take part in the hero pass null.
+  final ValueNotifier<bool>? heroFromPanel;
+
+  /// The library's per-track action sheet; surfaces that keep their rows
+  /// simple pass null.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +474,14 @@ class TrackTile extends StatelessWidget {
       (p) => p.currentTrack?.id == track.id,
     );
     final library = context.read<FathomLibrary>();
+    // A download becomes a device track the moment it lands, so the badge has
+    // to answer for both: by row for a device track, by videoId for one that
+    // is still remote.
+    final downloaded = context.select<FathomDownloads, bool>(
+      (d) => track.videoId != null
+          ? d.isDone(track.videoId)
+          : d.isDownloadedDeviceTrack(track.id),
+    );
 
     final compact = height <= 48.0;
     final artSize = (height - 12.0).clamp(24.0, 68.0);
@@ -345,12 +492,12 @@ class TrackTile extends StatelessWidget {
       height: compact ? 1.0 : 1.2,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
-      color: isPlaying ? accent : Colors.white,
+      color: isPlaying ? accent : FathomColors.onSurface,
     );
     final artistStyle = TextStyle(
       fontSize: compact ? 12.5 : 12,
       height: compact ? 1.0 : 1.15,
-      color: Colors.white.withValues(alpha: compact ? 0.45 : 0.5),
+      color: FathomColors.onSurface.withValues(alpha: compact ? 0.45 : 0.5),
     );
 
     final title = Text(
@@ -373,9 +520,10 @@ class TrackTile extends StatelessWidget {
         children: [
           InkWell(
             onTap: () {
-              heroFromPanel.value = compact;
+              heroFromPanel?.value = compact;
               onTap();
             },
+            onLongPress: onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: EdgeInsets.only(
@@ -385,20 +533,28 @@ class TrackTile extends StatelessWidget {
               child: Row(
                 children: [
                   if (!compact) ...[
-                    ValueListenableBuilder<bool>(
-                      valueListenable: heroFromPanel,
-                      builder: (context, fromPanel, child) =>
-                          HeroMode(enabled: !fromPanel, child: child!),
-                      child: Hero(
-                        tag: 'fathom-art-${track.id}',
-                        child: ArtThumb(
-                          id: track.id,
-                          artwork: library.artFor(track.id),
-                          size: artSize,
-                          radius: artSize > 42 ? 18 : 6,
+                    if (heroFromPanel == null)
+                      TrackArt(
+                        library: library,
+                        track: track,
+                        size: artSize,
+                        radius: artSize > 42 ? 18 : 6,
+                      )
+                    else
+                      ValueListenableBuilder<bool>(
+                        valueListenable: heroFromPanel!,
+                        builder: (context, fromPanel, child) =>
+                            HeroMode(enabled: !fromPanel, child: child!),
+                        child: Hero(
+                          tag: 'fathom-art-${track.id}',
+                          child: TrackArt(
+                            library: library,
+                            track: track,
+                            size: artSize,
+                            radius: artSize > 42 ? 18 : 6,
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(width: 14),
                   ],
                   Expanded(
@@ -408,7 +564,8 @@ class TrackTile extends StatelessWidget {
                               Expanded(child: title),
                               const SizedBox(width: 14),
                               ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 120),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 120),
                                 child: artist,
                               ),
                             ],
@@ -423,6 +580,14 @@ class TrackTile extends StatelessWidget {
                             ],
                           ),
                   ),
+                  if (downloaded) ...[
+                    const SizedBox(width: 10),
+                    Icon(
+                      TablerIcons.cloudCheck,
+                      size: compact ? 13 : 15,
+                      color: FathomColors.onSurface.withValues(alpha: 0.3),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -454,38 +619,6 @@ class TrackTile extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Library',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.8,
-            ),
-          ),
-        ),
-        FlatIconButton(
-          icon: TablerIcons.settings,
-          size: 22,
-          padding: const EdgeInsets.all(8),
-          color: Colors.white,
-          onTap: () => Navigator.of(context).push(_settingsRoute()),
-        ),
-      ],
-    );
-  }
-}
-
 class _SortSheet extends StatelessWidget {
   const _SortSheet({required this.current, required this.accent});
 
@@ -502,15 +635,15 @@ class _SortSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(
                 'Sort by',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
-                  color: Colors.white,
+                  color: FathomColors.onSurface,
                 ),
               ),
             ),
@@ -519,7 +652,8 @@ class _SortSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => Navigator.of(context).pop(option),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   child: Row(
                     children: [
                       Expanded(
@@ -527,8 +661,12 @@ class _SortSheet extends StatelessWidget {
                           option.label,
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: option == current ? FontWeight.w700 : FontWeight.w500,
-                            color: option == current ? accent : Colors.white,
+                            fontWeight: option == current
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: option == current
+                                ? accent
+                                : FathomColors.onSurface,
                           ),
                         ),
                       ),
@@ -573,15 +711,15 @@ class _StatusInfo extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: Colors.white.withValues(alpha: 0.3)),
+            Icon(icon, size: 40, color: FathomColors.onSurfaceFaint),
             const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -590,25 +728,28 @@ class _StatusInfo extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: FathomColors.onSurface.withValues(alpha: 0.5),
                 height: 1.35,
               ),
             ),
             if (action != null && onAction != null && accent != null)
               Padding(
                 padding: const EdgeInsets.only(top: 18),
-                child: GlassContainer(
+                // The status block is page body content, not a floating
+                // surface, so its action pill does not sample behind itself.
+                child: FlatContainer(
                   radius: 99,
-                  bgOpacity: 0.4,
                   accent: accent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(99),
                     onTap: onAction,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                       child: Text(
                         action,
-                        style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: accent, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

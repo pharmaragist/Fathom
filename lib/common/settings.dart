@@ -10,14 +10,20 @@ enum SettingKey {
   accentIndex('fathom.accent', 0),
   useArtAccent('fathom.art_accent', false),
   fontKey('fathom.font', 'Oswald'),
+  // 0 light, 1 dark, 2 follow the device.
+  themeIndex('fathom.theme', 2),
   gapless('fathom.gapless', true),
   speedIndex('fathom.speed', 1),
   sortIndex('fathom.sort', 0),
   eqEnabled('fathom.eq.enabled', true),
   eqPreset('fathom.eq.preset', null),
   shuffle('fathom.shuffle', false),
-  repeatIndex('fathom.repeat', 0);
-
+  repeatIndex('fathom.repeat', 0),
+  // Cheaper remote requests: smaller thumbnails, fewer rows and results.
+  dataSave('fathom.data_save', false),
+  // Drops the frosted-glass blur for flat fills: cheaper to composite on
+  // weak GPUs, at the cost of the glass look.
+  lowEnd('fathom.low_end', false);
 
   const SettingKey(this.prefKey, this.defaultValue);
   final String prefKey;
@@ -80,16 +86,31 @@ class FathomSettings extends ChangeNotifier {
     }
 
     final initial = <SettingKey, dynamic>{
-      SettingKey.accentIndex: prefs.getInt(SettingKey.accentIndex.prefKey) ?? SettingKey.accentIndex.defaultValue,
-      SettingKey.useArtAccent: prefs.getBool(SettingKey.useArtAccent.prefKey) ?? SettingKey.useArtAccent.defaultValue,
-      SettingKey.fontKey: prefs.getString(SettingKey.fontKey.prefKey) ?? SettingKey.fontKey.defaultValue,
-      SettingKey.gapless: prefs.getBool(SettingKey.gapless.prefKey) ?? SettingKey.gapless.defaultValue,
-      SettingKey.speedIndex: prefs.getInt(SettingKey.speedIndex.prefKey) ?? SettingKey.speedIndex.defaultValue,
-      SettingKey.sortIndex: prefs.getInt(SettingKey.sortIndex.prefKey) ?? SettingKey.sortIndex.defaultValue,
-      SettingKey.eqEnabled: prefs.getBool(SettingKey.eqEnabled.prefKey) ?? SettingKey.eqEnabled.defaultValue,
+      SettingKey.accentIndex: prefs.getInt(SettingKey.accentIndex.prefKey) ??
+          SettingKey.accentIndex.defaultValue,
+      SettingKey.useArtAccent: prefs.getBool(SettingKey.useArtAccent.prefKey) ??
+          SettingKey.useArtAccent.defaultValue,
+      SettingKey.fontKey: prefs.getString(SettingKey.fontKey.prefKey) ??
+          SettingKey.fontKey.defaultValue,
+      SettingKey.themeIndex: prefs.getInt(SettingKey.themeIndex.prefKey) ??
+          SettingKey.themeIndex.defaultValue,
+      SettingKey.gapless: prefs.getBool(SettingKey.gapless.prefKey) ??
+          SettingKey.gapless.defaultValue,
+      SettingKey.speedIndex: prefs.getInt(SettingKey.speedIndex.prefKey) ??
+          SettingKey.speedIndex.defaultValue,
+      SettingKey.sortIndex: prefs.getInt(SettingKey.sortIndex.prefKey) ??
+          SettingKey.sortIndex.defaultValue,
+      SettingKey.eqEnabled: prefs.getBool(SettingKey.eqEnabled.prefKey) ??
+          SettingKey.eqEnabled.defaultValue,
       SettingKey.eqPreset: prefs.getString(SettingKey.eqPreset.prefKey),
-      SettingKey.shuffle: prefs.getBool(SettingKey.shuffle.prefKey) ?? SettingKey.shuffle.defaultValue,
-      SettingKey.repeatIndex: prefs.getInt(SettingKey.repeatIndex.prefKey) ?? SettingKey.repeatIndex.defaultValue,
+      SettingKey.shuffle: prefs.getBool(SettingKey.shuffle.prefKey) ??
+          SettingKey.shuffle.defaultValue,
+      SettingKey.repeatIndex: prefs.getInt(SettingKey.repeatIndex.prefKey) ??
+          SettingKey.repeatIndex.defaultValue,
+      SettingKey.dataSave: prefs.getBool(SettingKey.dataSave.prefKey) ??
+          SettingKey.dataSave.defaultValue,
+      SettingKey.lowEnd: prefs.getBool(SettingKey.lowEnd.prefKey) ??
+          SettingKey.lowEnd.defaultValue,
     };
 
     return FathomSettings._(
@@ -128,14 +149,41 @@ class FathomSettings extends ChangeNotifier {
   Color get accent {
     final useArt = get<bool>(SettingKey.useArtAccent);
     if (useArt && _extractedArtAccent != null) return _extractedArtAccent!;
-    final index = get<int>(SettingKey.accentIndex).clamp(0, FathomColors.accentSwatches.length - 1);
+    final index = get<int>(SettingKey.accentIndex)
+        .clamp(0, FathomColors.accentSwatches.length - 1);
     return FathomColors.accentSwatches[index];
   }
 
+  /// The stored theme choice resolved to a [ThemeMode]: light, dark, or
+  /// system so the device's own day/night setting decides.
+  ThemeMode get themeMode =>
+      switch (get<int>(SettingKey.themeIndex).clamp(0, 2)) {
+        0 => ThemeMode.light,
+        1 => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
   FathomRepeatMode get repeatMode {
-    final index = get<int>(SettingKey.repeatIndex).clamp(0, FathomRepeatMode.values.length - 1);
+    final index = get<int>(SettingKey.repeatIndex)
+        .clamp(0, FathomRepeatMode.values.length - 1);
     return FathomRepeatMode.values[index];
   }
+
+  /// Whether low-end rendering is actually in force right now.
+  ///
+  /// This is [SettingKey.lowEnd] or `powerSave`: Android's Battery Saver forces
+  /// the mode on, and the user cannot turn it off while it is active. The stored
+  /// key is never written to from here, so switching power save off restores
+  /// exactly what the user chose; the override lives only in this read.
+  ///
+  /// The state is a parameter rather than a dependency on the native power
+  /// service, because `FathomSettings` is a preference store and the device's
+  /// battery state is not a preference. Every caller has the power state in
+  /// hand already — `FathomApp.build` from its notifier, the settings row from
+  /// `select` — so passing it in keeps this a pure mapping and keeps the one
+  /// answer to "is low-end in force" in a single place.
+  bool lowEndInForce({required bool powerSave}) =>
+      powerSave || get<bool>(SettingKey.lowEnd);
 
   Map<int, double> get eqGains => Map.unmodifiable(_eqGains);
 
@@ -189,7 +237,9 @@ class FathomSettings extends ChangeNotifier {
   void saveEqPreset(String name, EqPreset preset, {String? replacing}) {
     if (kBuiltInEqPresets.containsKey(name)) return;
 
-    if (replacing == null || replacing == name || !_eqPresets.containsKey(replacing)) {
+    if (replacing == null ||
+        replacing == name ||
+        !_eqPresets.containsKey(replacing)) {
       _eqPresets[name] = preset;
     } else {
       final rebuilt = <String, EqPreset>{};

@@ -3,10 +3,12 @@ import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
+import '../common/colors.dart';
 import '../common/constants.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/flat_slider.dart';
+import '../components/flat_switch.dart';
 import '../components/glass.dart';
 import '../services/autoeq.dart';
 import '../services/equalizer.dart';
@@ -30,77 +32,28 @@ class _EqualizerPageState extends State<EqualizerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.viewPaddingOf(context).top;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
-    final player = context.watch<FathomPlayer>();
+    final eqReady = context.select<FathomPlayer, bool>((p) => p.eqReady);
+    final player = context.read<FathomPlayer>();
     final settings = context.watch<FathomSettings>();
     final accent = settings.accent;
 
+    // The shell paints the backdrop and the header above this body, so the
+    // page carries only its cards. The shell's `Expanded` gives the page a
+    // tight height, exactly what the bands card needs to fill.
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, top + 12, 20, bottom + 140),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
-            child: Row(
-              children: [
-                const Text(
-                  'Equalizer',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                    color: Colors.white,
-                  ),
-                ),
-                const Spacer(),
-                _ResetButton(accent: accent),
-              ],
-            ),
-          ),
           _ControlsCard(accent: accent, settings: settings),
           const SizedBox(height: 12),
           Expanded(
-            child: player.eqReady
+            child: eqReady
                 ? _BandsCard(accent: accent, player: player)
                 : _LockedCard(accent: accent),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ResetButton extends StatelessWidget {
-  const _ResetButton({required this.accent});
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.read<FathomPlayer>().applyEqPreset('Flat'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(TablerIcons.refresh, size: 14, color: accent),
-            const SizedBox(width: 6),
-            const Text(
-              'Reset',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -119,9 +72,8 @@ class _ControlsCard extends StatelessWidget {
     final saved = current != null ? settings.eqPresets[current] : null;
     final editing = (builtIn != null || saved != null) ? current : null;
 
-    return GlassContainer(
+    return FlatContainer(
       radius: 24,
-      bgOpacity: 0.08,
       borderOpacity: 0.07,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
       child: Column(
@@ -131,18 +83,18 @@ class _ControlsCard extends StatelessWidget {
             children: [
               Icon(TablerIcons.waveSine, size: 18, color: accent),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'Enabled',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: FathomColors.onSurface,
                 ),
               ),
               const Spacer(),
-              Switch.adaptive(
+              FlatSwitch(
                 value: eqEnabled,
-                activeTrackColor: accent,
+                accent: accent,
                 onChanged: (v) {
                   context.read<FathomPlayer>().setDeviceEqualizerEnabled(v);
                 },
@@ -152,7 +104,7 @@ class _ControlsCard extends StatelessWidget {
           const SizedBox(height: 12),
           Container(
             height: 0.5,
-            color: Colors.white.withValues(alpha: 0.10),
+            color: FathomColors.fillLow,
           ),
           const SizedBox(height: 14),
           SingleChildScrollView(
@@ -189,7 +141,8 @@ class _ControlsCard extends StatelessWidget {
                     },
                   ),
                 ],
-                for (final name in settings.eqPresetNames(EqPresetSource.user)) ...[
+                for (final name
+                    in settings.eqPresetNames(EqPresetSource.user)) ...[
                   const SizedBox(width: 8),
                   _PresetChip(
                     label: name,
@@ -200,7 +153,8 @@ class _ControlsCard extends StatelessWidget {
                     },
                   ),
                 ],
-                for (final name in settings.eqPresetNames(EqPresetSource.autoEq)) ...[
+                for (final name
+                    in settings.eqPresetNames(EqPresetSource.autoEq)) ...[
                   const SizedBox(width: 8),
                   _PresetChip(
                     label: name,
@@ -244,7 +198,7 @@ class _PresetChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? accent.withValues(alpha: 0.20)
-              : Colors.white.withValues(alpha: 0.06),
+              : FathomColors.fillFaint,
           borderRadius: BorderRadius.circular(99),
         ),
         child: Text(
@@ -253,8 +207,9 @@ class _PresetChip extends StatelessWidget {
             fontSize: 13,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             letterSpacing: -0.1,
-            color:
-                selected ? Colors.white : Colors.white.withValues(alpha: 0.7),
+            color: selected
+                ? FathomColors.onSurface
+                : FathomColors.onSurface.withValues(alpha: 0.7),
           ),
         ),
       ),
@@ -295,11 +250,11 @@ class _PresetActionChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.1,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
             ),
           ],
@@ -426,20 +381,20 @@ class _PresetSheetState extends State<_PresetSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: GlassContainer.surface,
-        title: const Text(
+        backgroundColor: FathomColors.background,
+        title: Text(
           'Delete preset?',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: FathomColors.onSurface,
           ),
         ),
         content: Text(
           '"$name" will be removed. This cannot be undone.',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: FathomColors.onSurface.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -447,15 +402,17 @@ class _PresetSheetState extends State<_PresetSheet> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.75)),
+              style: TextStyle(
+                color: FathomColors.onSurface.withValues(alpha: 0.75),
+              ),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text(
+            child: Text(
               'Delete',
               style: TextStyle(
-                color: Colors.redAccent,
+                color: FathomColors.error,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -482,11 +439,11 @@ class _PresetSheetState extends State<_PresetSheet> {
           children: [
             Text(
               editing ? 'Edit preset' : 'Save preset',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -494,7 +451,7 @@ class _PresetSheetState extends State<_PresetSheet> {
               'Stores the ten bands and the preamp under a name.',
               style: TextStyle(
                 fontSize: 12.5,
-                color: Colors.white.withValues(alpha: 0.55),
+                color: FathomColors.onSurface.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 16),
@@ -505,20 +462,20 @@ class _PresetSheetState extends State<_PresetSheet> {
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submit(),
               cursorColor: widget.accent,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
               decoration: InputDecoration(
                 hintText: 'Preset name',
                 hintStyle: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: FathomColors.onSurface.withValues(alpha: 0.3),
                 ),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.06),
+                fillColor: FathomColors.fillFaint,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 border: OutlineInputBorder(
@@ -540,8 +497,8 @@ class _PresetSheetState extends State<_PresetSheet> {
                 style: TextStyle(
                   fontSize: 12,
                   color: _error != null
-                      ? Colors.orangeAccent
-                      : Colors.white.withValues(alpha: 0.5),
+                      ? FathomColors.warning
+                      : FathomColors.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -552,13 +509,13 @@ class _PresetSheetState extends State<_PresetSheet> {
                   _SheetButton(
                     label: 'Delete',
                     icon: TablerIcons.trash,
-                    color: Colors.redAccent,
+                    color: FathomColors.error,
                     onTap: _delete,
                   ),
                 const Spacer(),
                 _SheetButton(
                   label: 'Cancel',
-                  color: Colors.white.withValues(alpha: 0.75),
+                  color: FathomColors.onSurface.withValues(alpha: 0.75),
                   onTap: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: 8),
@@ -597,7 +554,7 @@ class _SheetButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = filled ? Colors.black : color;
+    final foreground = filled ? FathomColors.onAccent(color) : color;
 
     return GestureDetector(
       onTap: enabled ? onTap : null,
@@ -606,9 +563,8 @@ class _SheetButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
-            color: filled
-                ? color.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.06),
+            color:
+                filled ? color.withValues(alpha: 0.9) : FathomColors.fillFaint,
             borderRadius: BorderRadius.circular(99),
           ),
           child: Row(
@@ -761,13 +717,13 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'AutoEQ',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.3,
-              color: Colors.white,
+              color: FathomColors.onSurface,
             ),
           ),
           const SizedBox(height: 4),
@@ -775,7 +731,7 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
             'Measured headphone corrections, stored as a preset.',
             style: TextStyle(
               fontSize: 12.5,
-              color: Colors.white.withValues(alpha: 0.55),
+              color: FathomColors.onSurface.withValues(alpha: 0.55),
             ),
           ),
           const SizedBox(height: 14),
@@ -783,25 +739,25 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
             controller: _query,
             textInputAction: TextInputAction.search,
             cursorColor: widget.accent,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: FathomColors.onSurface,
             ),
             decoration: InputDecoration(
               hintText: 'Search a headphone model',
               prefixIcon: Icon(
                 TablerIcons.search,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: FathomColors.onSurface.withValues(alpha: 0.4),
               ),
               hintStyle: TextStyle(
                 fontSize: 15,
-                color: Colors.white.withValues(alpha: 0.35),
+                color: FathomColors.onSurface.withValues(alpha: 0.35),
               ),
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
+              fillColor: FathomColors.fillFaint,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -812,7 +768,7 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
             const SizedBox(height: 10),
             Text(
               _failure!,
-              style: const TextStyle(fontSize: 12, color: Colors.orangeAccent),
+              style: TextStyle(fontSize: 12, color: FathomColors.warning),
             ),
           ],
           const SizedBox(height: 12),
@@ -821,13 +777,13 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
               future: _index,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
-                  return const Center(
+                  return Center(
                     child: SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white38,
+                        color: FathomColors.onSurface.withValues(alpha: 0.38),
                       ),
                     ),
                   );
@@ -847,7 +803,8 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
                           style: TextStyle(
                             fontSize: 12.5,
                             height: 1.4,
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color:
+                                FathomColors.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -870,7 +827,7 @@ class _AutoEqSheetState extends State<_AutoEqSheet> {
                       'No headphone matches that search.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: FathomColors.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   );
@@ -925,11 +882,11 @@ class _AutoEqRow extends StatelessWidget {
                     entry.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
-                      color: Colors.white,
+                      color: FathomColors.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -939,7 +896,7 @@ class _AutoEqRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: FathomColors.onSurface.withValues(alpha: 0.45),
                     ),
                   ),
                 ],
@@ -956,7 +913,7 @@ class _AutoEqRow extends StatelessWidget {
               Icon(
                 TablerIcons.plus,
                 size: 16,
-                color: Colors.white.withValues(alpha: 0.35),
+                color: FathomColors.onSurface.withValues(alpha: 0.35),
               ),
           ],
         ),
@@ -972,10 +929,11 @@ class _BandsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Both band layouts are panels in the page's layout, under opaque labels
+    // and sliders, so neither one needs to sample what is behind it.
     if (player.usingNativeEqualizer) {
-      return GlassContainer(
+      return FlatContainer(
         radius: 24,
-        bgOpacity: 0.08,
         borderOpacity: 0.07,
         padding: const EdgeInsets.fromLTRB(8, 18, 8, 20),
         child: Column(
@@ -1007,22 +965,21 @@ class _BandsCard extends StatelessWidget {
       );
     }
 
-    return GlassContainer(
+    return FlatContainer(
       radius: 24,
-      bgOpacity: 0.08,
       borderOpacity: 0.07,
       padding: const EdgeInsets.fromLTRB(8, 24, 8, 20),
       child: FutureBuilder<AndroidEqualizerParameters?>(
         future: player.hardwareEqualizer.parameters,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(
+            return Center(
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white38,
+                  color: FathomColors.onSurface.withValues(alpha: 0.38),
                 ),
               ),
             );
@@ -1034,7 +991,7 @@ class _BandsCard extends StatelessWidget {
                 'Equalizer unavailable on this device.',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: FathomColors.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             );
@@ -1046,7 +1003,7 @@ class _BandsCard extends StatelessWidget {
                 'Equalizer unavailable on this device.',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: FathomColors.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             );
@@ -1077,9 +1034,8 @@ class _LockedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
+    return FlatContainer(
       radius: 24,
-      bgOpacity: 0.08,
       borderOpacity: 0.07,
       padding: const EdgeInsets.all(32),
       child: Center(
@@ -1089,15 +1045,15 @@ class _LockedCard extends StatelessWidget {
             Icon(
               TablerIcons.waveSine,
               size: 42,
-              color: Colors.white.withValues(alpha: 0.25),
+              color: FathomColors.onSurface.withValues(alpha: 0.25),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Loading equalizer',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
             ),
             const SizedBox(height: 6),
@@ -1107,7 +1063,7 @@ class _LockedCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: FathomColors.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -1150,7 +1106,7 @@ class _BandColumn extends StatelessWidget {
                   letterSpacing: -0.1,
                   fontFeatures: const [FontFeature.tabularFigures()],
                   color: gain.abs() < 0.05
-                      ? Colors.white.withValues(alpha: 0.35)
+                      ? FathomColors.onSurface.withValues(alpha: 0.35)
                       : accent,
                 ),
               ),
@@ -1179,7 +1135,7 @@ class _BandColumn extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                   letterSpacing: -0.1,
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: FathomColors.onSurface.withValues(alpha: 0.4),
                 ),
               ),
             ],
@@ -1249,12 +1205,12 @@ class _PreampRowState extends State<_PreampRow> {
       children: [
         Icon(TablerIcons.adjustmentsHorizontal, size: 16, color: accent),
         const SizedBox(width: 10),
-        const Text(
+        Text(
           'Preamp',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: FathomColors.onSurface,
           ),
         ),
         const SizedBox(width: 14),
@@ -1279,7 +1235,7 @@ class _PreampRowState extends State<_PreampRow> {
               letterSpacing: -0.1,
               fontFeatures: const [FontFeature.tabularFigures()],
               color: db.abs() < 0.05
-                  ? Colors.white.withValues(alpha: 0.35)
+                  ? FathomColors.onSurface.withValues(alpha: 0.35)
                   : accent,
             ),
           ),
@@ -1354,7 +1310,7 @@ class _NativeBandColumnState extends State<_NativeBandColumn> {
               letterSpacing: -0.1,
               fontFeatures: const [FontFeature.tabularFigures()],
               color: gain.abs() < 0.05
-                  ? Colors.white.withValues(alpha: 0.35)
+                  ? FathomColors.onSurface.withValues(alpha: 0.35)
                   : accent,
             ),
           ),
@@ -1384,7 +1340,7 @@ class _NativeBandColumnState extends State<_NativeBandColumn> {
               fontSize: 10,
               fontWeight: FontWeight.w500,
               letterSpacing: -0.1,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: FathomColors.onSurface.withValues(alpha: 0.4),
             ),
           ),
         ],
@@ -1392,4 +1348,3 @@ class _NativeBandColumnState extends State<_NativeBandColumn> {
     );
   }
 }
-
