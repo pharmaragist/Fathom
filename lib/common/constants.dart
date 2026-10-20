@@ -9,7 +9,18 @@ const List<String> kFontOptions = ['System', 'Oswald'];
 const List<double> kSpeedFactors = [0.5, 1.0, 1.25, 1.5, 2.0];
 const List<String> kSpeedLabels = ['0.5x', '1x', '1.25x', '1.5x', '2x'];
 
-const List<int> kEq10Bands = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+const List<int> kEq10Bands = [
+  31,
+  63,
+  125,
+  250,
+  500,
+  1000,
+  2000,
+  4000,
+  8000,
+  16000
+];
 
 /// Where a named equalizer curve came from.
 enum EqPresetSource {

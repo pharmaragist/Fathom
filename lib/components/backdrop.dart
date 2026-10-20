@@ -3,19 +3,19 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../common/colors.dart';
 import '../common/settings.dart';
 
 class AmbientBackdrop extends StatelessWidget {
-  const AmbientBackdrop({super.key, this.trackId, this.artwork});
+  const AmbientBackdrop({super.key, this.artwork});
 
-  final int? trackId;
   final Future<Uint8List?>? artwork;
 
   Color _accent(BuildContext context) {
     try {
       return context.select<FathomSettings, Color>((s) => s.accent);
     } on ProviderNotFoundException {
-      return Colors.white;
+      return FathomColors.onSurface;
     }
   }
 

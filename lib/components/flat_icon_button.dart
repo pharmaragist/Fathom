@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../common/colors.dart';
+
 class FlatIconButton extends StatefulWidget {
   const FlatIconButton({
     super.key,
     required this.icon,
     required this.onTap,
     this.size = 24.0,
-    this.color = Colors.white,
+    this.color,
     this.active = false,
     this.activeColor,
     this.enabled = true,
@@ -16,7 +18,7 @@ class FlatIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final double size;
-  final Color color;
+  final Color? color;
   final bool active;
   final Color? activeColor;
   final bool enabled;
@@ -43,9 +45,10 @@ class _FlatIconButtonState extends State<FlatIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final base = widget.color ?? FathomColors.onSurface;
     final effectiveColor = widget.active
-        ? (widget.activeColor ?? widget.color)
-        : (widget.enabled ? widget.color : widget.color.withValues(alpha: 0.24));
+        ? (widget.activeColor ?? base)
+        : (widget.enabled ? base : base.withValues(alpha: 0.24));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

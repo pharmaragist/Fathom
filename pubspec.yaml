@@ -17,8 +17,13 @@ dependencies:
   tabler_icons_plus: ^3.49.0
   shared_preferences: ^2.5.5
   shared_preferences_android: ">=2.4.28 <2.5.0"
+  # The Material color utilities that generate Fathom's tonal palettes.
+  material_color_utilities: ^0.13.0
   palette_generator_plus: ^1.0.0
   volume_controller: ^3.7.1
+  yt_flutter_musicapi: ^3.4.4
+  path_provider: ^2.1.5
+  ffmpeg_kit_flutter_new: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -28,8 +33,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/branding/icons/logo.png
   fonts:
     - family: Oswald
       fonts:
@@ -38,6 +41,10 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  image_path: "assets/branding/icons/logo.png"
+  ios: false
+  image_path: "assets/branding/icons/icon_fallback.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/branding/icons/fg.png"
+  # Android 13+ themed icons: launcher tints this layer with wallpaper colors
+  adaptive_icon_monochrome: "assets/branding/icons/fg.png"
+  adaptive_icon_foreground_inset: 28

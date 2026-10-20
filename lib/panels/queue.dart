@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
+import '../common/colors.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/flat_icon_button.dart';
@@ -23,7 +24,7 @@ class QueuePanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 8),
                 child: Text(
                   'Up Next',
@@ -31,21 +32,21 @@ class QueuePanel extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
-                    color: Colors.white,
+                    color: FathomColors.onSurface,
                   ),
                 ),
               ),
               const Spacer(),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: FathomColors.onSurface.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 child: FlatIconButton(
                   icon: TablerIcons.x,
                   size: 20,
                   padding: const EdgeInsets.all(8),
-                  color: Colors.white,
+                  color: FathomColors.onSurface,
                   onTap: () => Navigator.of(context).maybePop(),
                 ),
               ),
@@ -59,20 +60,20 @@ class QueuePanel extends StatelessWidget {
                       'Queue is empty',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: FathomColors.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   )
                 : ReorderableListView.builder(
                     buildDefaultDragHandles: false,
                     itemCount: queue.length,
-                    onReorder: (from, to) =>
+                    onReorderItem: (from, to) =>
                         context.read<FathomPlayer>().moveAt(from, to),
                     proxyDecorator: (child, index, anim) => Material(
                       color: Colors.transparent,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
+                          color: FathomColors.shadow.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: child,
@@ -113,7 +114,7 @@ class QueuePanel extends StatelessWidget {
                                                 '${i + 1}',
                                                 style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.white
+                                                  color: FathomColors.onSurface
                                                       .withValues(alpha: 0.4),
                                                 ),
                                               ),
@@ -133,7 +134,7 @@ class QueuePanel extends StatelessWidget {
                                                 fontWeight: FontWeight.w600,
                                                 color: isCurrent
                                                     ? accent
-                                                    : Colors.white,
+                                                    : FathomColors.onSurface,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -143,7 +144,7 @@ class QueuePanel extends StatelessWidget {
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.white
+                                                color: FathomColors.onSurface
                                                     .withValues(alpha: 0.5),
                                               ),
                                             ),
@@ -162,7 +163,8 @@ class QueuePanel extends StatelessWidget {
                                 child: Icon(
                                   TablerIcons.gripVertical,
                                   size: 18,
-                                  color: Colors.white.withValues(alpha: 0.35),
+                                  color: FathomColors.onSurface
+                                      .withValues(alpha: 0.35),
                                 ),
                               ),
                             ),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../common/colors.dart';
+
 /// Minimal flat slider primitive.
 ///
 /// Renders a thin rounded track with an accent fill spanning [origin]..[value].
@@ -108,11 +110,15 @@ class _FlatSliderState extends State<FlatSlider> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
-                height: vertical ? null : (_active ? _activeThickness : _trackThickness),
-                width: vertical ? (_active ? _activeThickness : _trackThickness) : null,
+                height: vertical
+                    ? null
+                    : (_active ? _activeThickness : _trackThickness),
+                width: vertical
+                    ? (_active ? _activeThickness : _trackThickness)
+                    : null,
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
+                  color: FathomColors.fill,
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Align(

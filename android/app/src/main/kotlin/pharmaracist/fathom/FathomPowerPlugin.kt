@@ -80,11 +80,10 @@ class FathomPowerPlugin(private val context: Context?) :
         val target = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action != PowerManager.ACTION_POWER_SAVE_MODE_CHANGED) return
-                val saving = intent.getBooleanExtra(
-                    PowerManager.EXTRA_POWER_SAVE_MODE,
-                    isPowerSave(),
-                )
-                channel?.invokeMethod("onPowerSaveChanged", saving)
+                // The broadcast carries no public extra naming the new state
+                // (`EXTRA_POWER_SAVE_MODE` is not part of the SDK), so the value
+                // is read back from PowerManager instead of from the intent.
+                channel?.invokeMethod("onPowerSaveChanged", isPowerSave())
             }
         }
 

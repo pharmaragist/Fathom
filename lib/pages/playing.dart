@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -7,11 +6,13 @@ import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 import 'package:volume_controller/volume_controller.dart';
 
+import '../common/colors.dart';
 import '../common/constants.dart';
 import '../common/library.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/art.dart';
+import '../components/carousel.dart';
 import '../components/flat_icon_button.dart';
 import '../components/flat_slider.dart';
 import '../components/glass.dart';
@@ -28,6 +29,14 @@ class NowPlayingPage extends StatefulWidget {
 class _NowPlayingPageState extends State<NowPlayingPage> {
   double? _dragRatio;
 
+  void _seekEnd(FathomPlayer player, double ratio) {
+    final d = player.duration;
+    if (d != null) {
+      player.seekTo(Duration(milliseconds: (ratio * d.inMilliseconds).round()));
+    }
+    setState(() => _dragRatio = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = context.watch<FathomPlayer>();
@@ -35,19 +44,19 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
     final viewPadding = MediaQuery.viewPaddingOf(context);
 
     if (track == null) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: FathomColors.mediaBackground,
         body: Center(
           child: Text(
             'Nothing playing',
-            style: TextStyle(color: Colors.white60),
+            style: TextStyle(color: FathomColors.onMediaMuted),
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: FathomColors.mediaBackground,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onVerticalDragEnd: (d) {
@@ -58,7 +67,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _BackdropLayer(trackId: track.id),
+            _BackdropLayer(track: track),
             Padding(
               padding: EdgeInsets.fromLTRB(
                 0,
@@ -68,20 +77,17 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
               ),
               child: Column(
                 children: [
-                  _Grabber(
-                    onTap: () => Navigator.of(context).maybePop(),
-                  ),
+                  _Grabber(onTap: () => Navigator.of(context).maybePop()),
                   Expanded(
                     flex: 11,
-                    child: _CoverCarousel(
+                    child: CoverCarousel(
                       isPlaying: player.isPlaying,
                       selectedIndex: player.selectedIndex,
                       queue: player.queue,
-                      onPageChanged: (i) {
-                        if (i != player.selectedIndex) {
-                          player.playIndex(i);
-                        }
-                      },
+                      previous: player.previousTrack,
+                      next: player.nextTrack,
+                      onSkipNext: player.skipNext,
+                      onSkipPrevious: player.skipPrevious,
                     ),
                   ),
                   Expanded(
@@ -96,18 +102,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                           _SeekSection(
                             dragRatio: _dragRatio,
                             onDrag: (r) => setState(() => _dragRatio = r),
-                            onDragEnd: (r) {
-                              final d = player.duration;
-                              if (d != null) {
-                                player.seekTo(
-                                  Duration(
-                                    milliseconds:
-                                        (r * d.inMilliseconds).round(),
-                                  ),
-                                );
-                              }
-                              setState(() => _dragRatio = null);
-                            },
+                            onDragEnd: (r) => _seekEnd(player, r),
                           ),
                           const Spacer(),
                           const _Transport(),
@@ -130,9 +125,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 }
 
 class _BackdropLayer extends StatefulWidget {
-  const _BackdropLayer({required this.trackId});
+  const _BackdropLayer({required this.track});
 
-  final int trackId;
+  final FathomTrack track;
 
   @override
   State<_BackdropLayer> createState() => _BackdropLayerState();
@@ -140,28 +135,25 @@ class _BackdropLayer extends StatefulWidget {
 
 class _BackdropLayerState extends State<_BackdropLayer> {
   Uint8List? _bytes;
-  int _requested = -1;
+  FathomTrack? _requested;
 
   @override
   void initState() {
     super.initState();
-    _load(widget.trackId);
+    _load(widget.track);
   }
 
   @override
   void didUpdateWidget(_BackdropLayer old) {
     super.didUpdateWidget(old);
-    if (old.trackId != widget.trackId) {
-      _load(widget.trackId);
-    }
+    if (old.track != widget.track) _load(widget.track);
   }
 
-  Future<void> _load(int id) async {
-    if (_requested == id) return;
-    _requested = id;
-    final lib = context.read<FathomLibrary>();
-    final bytes = await lib.artFor(id);
-    if (!mounted || _requested != id) return;
+  Future<void> _load(FathomTrack track) async {
+    if (_requested == track) return;
+    _requested = track;
+    final bytes = await trackArtBytes(context.read<FathomLibrary>(), track);
+    if (!mounted || _requested != track) return;
     setState(() => _bytes = bytes);
   }
 
@@ -185,184 +177,9 @@ class _BackdropLayerState extends State<_BackdropLayer> {
             ),
           )
         else
-          const ColoredBox(color: Color(0xFF0E0E10)),
-        const ColoredBox(color: Color(0xC2000000)),
+          ColoredBox(color: FathomColors.mediaBackground),
+        ColoredBox(color: FathomColors.mediaScrim),
       ],
-    );
-  }
-}
-
-class _CoverCarousel extends StatefulWidget {
-  const _CoverCarousel({
-    required this.isPlaying,
-    required this.selectedIndex,
-    required this.queue,
-    required this.onPageChanged,
-  });
-
-  final bool isPlaying;
-  final int selectedIndex;
-  final List<FathomTrack> queue;
-  final ValueChanged<int> onPageChanged;
-
-  @override
-  State<_CoverCarousel> createState() => _CoverCarouselState();
-}
-
-class _CoverCarouselState extends State<_CoverCarousel> {
-  late PageController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController(initialPage: widget.selectedIndex);
-  }
-
-  @override
-  void didUpdateWidget(_CoverCarousel old) {
-    super.didUpdateWidget(old);
-    if (_controller.hasClients &&
-        _controller.page?.round() != widget.selectedIndex) {
-      _controller.animateToPage(
-        widget.selectedIndex,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final library = context.read<FathomLibrary>();
-    final queue = widget.queue;
-
-    if (queue.isEmpty) {
-      return const Center(
-        child: Icon(TablerIcons.music, size: 48, color: Colors.white24),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        final rawSide =
-            (c.maxHeight < c.maxWidth - 24 ? c.maxHeight - 32 : c.maxWidth - 32)
-                .clamp(120.0, 400.0);
-
-        return PageView.builder(
-          controller: _controller,
-          itemCount: queue.length,
-          clipBehavior: Clip.none,
-          physics: const PageScrollPhysics(),
-          onPageChanged: widget.onPageChanged,
-          itemBuilder: (context, i) {
-            final track = queue[i];
-            final isActive = i == widget.selectedIndex;
-            final artSide = rawSide;
-
-            return Center(
-              child: AnimatedScale(
-                scale: isActive ? 1.0 : 0.94,
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-                child: SizedBox(
-                  width: artSide,
-                  height: artSide,
-                  child: _CoverArt(
-                    track: track,
-                    side: artSide,
-                    isActive: isActive,
-                    isPlaying: widget.isPlaying,
-                    library: library,
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _CoverArt extends StatelessWidget {
-  const _CoverArt({
-    required this.track,
-    required this.side,
-    required this.isActive,
-    required this.isPlaying,
-    required this.library,
-  });
-
-  final FathomTrack track;
-  final double side;
-  final bool isActive;
-  final bool isPlaying;
-  final FathomLibrary library;
-
-  @override
-  Widget build(BuildContext context) {
-    final coverScale = isPlaying ? 1.0 : 0.9;
-
-    final art = AnimatedScale(
-      scale: coverScale,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        width: side,
-        height: side,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isPlaying ? 0.55 : 0.40),
-              blurRadius: isPlaying ? 36 : 24,
-              offset: Offset(0, isPlaying ? 16 : 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: ArtThumb(
-            id: track.id,
-            artwork: library.artFor(track.id),
-            size: side,
-          ),
-        ),
-      ),
-    );
-
-    if (!isActive) return art;
-
-    return Hero(
-      tag: 'fathom-art-${track.id}',
-      placeholderBuilder: (context, heroSize, child) =>
-          SizedBox.fromSize(size: heroSize),
-      flightShuttleBuilder: (
-        flightContext,
-        animation,
-        flightDirection,
-        fromHeroContext,
-        toHeroContext,
-      ) {
-        final toHero = toHeroContext.widget as Hero;
-        return Material(
-          type: MaterialType.transparency,
-          child: SizedBox.square(
-            dimension: side,
-            child: toHero.child,
-          ),
-        );
-      },
-      child: art,
     );
   }
 }
@@ -385,7 +202,7 @@ class _Grabber extends StatelessWidget {
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: FathomColors.onMedia.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -412,11 +229,11 @@ class _TitleRow extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.start,
           textDirection: TextDirection.ltr,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
-            color: Colors.white,
+            color: FathomColors.onMedia,
           ),
         ),
         const SizedBox(height: 2),
@@ -430,7 +247,7 @@ class _TitleRow extends StatelessWidget {
             fontSize: 20,
             fontWeight: FontWeight.w400,
             letterSpacing: -0.3,
-            color: Colors.white.withValues(alpha: 0.6),
+            color: FathomColors.onMediaMuted,
           ),
         ),
       ],
@@ -456,7 +273,7 @@ class _SeekSection extends StatelessWidget {
     final labelStyle = TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w500,
-      color: Colors.white.withValues(alpha: 0.5),
+      color: FathomColors.onMedia.withValues(alpha: 0.5),
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
@@ -464,8 +281,7 @@ class _SeekSection extends StatelessWidget {
       stream: player.audioPlayer.positionStream,
       builder: (context, snap) {
         final pos = snap.data ?? Duration.zero;
-        final dur = player.duration;
-        final totalMs = dur?.inMilliseconds ?? 0;
+        final totalMs = player.duration?.inMilliseconds ?? 0;
         final ratio = dragRatio ??
             (totalMs > 0
                 ? (pos.inMilliseconds / totalMs).clamp(0.0, 1.0)
@@ -521,8 +337,9 @@ class _Transport extends StatelessWidget {
           icon: TablerIcons.playerTrackPrevFilled,
           size: 32,
           padding: const EdgeInsets.all(8),
+          color: FathomColors.onMedia,
           enabled: player.canSkipPrevious,
-          onTap: () => context.read<FathomPlayer>().skipPrevious(),
+          onTap: player.skipPrevious,
         ),
         FlatIconButton(
           icon: player.isPlaying
@@ -530,14 +347,16 @@ class _Transport extends StatelessWidget {
               : TablerIcons.playerPlayFilled,
           size: 64,
           padding: const EdgeInsets.all(8),
-          onTap: () => context.read<FathomPlayer>().togglePlay(),
+          color: FathomColors.onMedia,
+          onTap: player.togglePlay,
         ),
         FlatIconButton(
           icon: TablerIcons.playerTrackNextFilled,
           size: 32,
           padding: const EdgeInsets.all(8),
+          color: FathomColors.onMedia,
           enabled: player.canSkipNext,
-          onTap: () => context.read<FathomPlayer>().skipNext(),
+          onTap: player.skipNext,
         ),
       ],
     );
@@ -597,15 +416,12 @@ class _VolumeRowState extends State<_VolumeRow> {
   @override
   Widget build(BuildContext context) {
     final accent = context.watch<FathomSettings>().accent;
+    final iconColor = FathomColors.onMedia.withValues(alpha: 0.4);
 
     return Row(
       children: [
         const SizedBox(width: 30),
-        Icon(
-          TablerIcons.volume2,
-          size: 16,
-          color: Colors.white.withValues(alpha: 0.4),
-        ),
+        Icon(TablerIcons.volume2, size: 16, color: iconColor),
         const SizedBox(width: 15),
         Expanded(
           child: FlatSlider(
@@ -617,11 +433,7 @@ class _VolumeRowState extends State<_VolumeRow> {
           ),
         ),
         const SizedBox(width: 15),
-        Icon(
-          TablerIcons.volume,
-          size: 16,
-          color: Colors.white.withValues(alpha: 0.4),
-        ),
+        Icon(TablerIcons.volume, size: 16, color: iconColor),
         const SizedBox(width: 30),
       ],
     );
@@ -642,6 +454,7 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = context.watch<FathomPlayer>();
     final accent = context.watch<FathomSettings>().accent;
+    final idle = FathomColors.onMedia.withValues(alpha: 0.55);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -651,8 +464,8 @@ class _BottomBar extends StatelessWidget {
           active: true,
           size: 22,
           padding: const EdgeInsets.all(8),
-          color: Colors.white.withValues(alpha: 0.55),
-          activeColor: Colors.white,
+          color: idle,
+          activeColor: FathomColors.onMedia,
           onTap: () => showQueueBottomSheet(context),
         ),
         FlatIconButton(
@@ -660,18 +473,18 @@ class _BottomBar extends StatelessWidget {
           active: player.shuffle,
           size: 22,
           padding: const EdgeInsets.all(8),
-          color: Colors.white.withValues(alpha: 0.55),
+          color: idle,
           activeColor: accent,
-          onTap: () => context.read<FathomPlayer>().toggleShuffle(),
+          onTap: player.toggleShuffle,
         ),
         FlatIconButton(
           icon: _repeatIcon(player.repeatMode),
           active: player.repeatMode != FathomRepeatMode.off,
           size: 22,
           padding: const EdgeInsets.all(8),
-          color: Colors.white.withValues(alpha: 0.55),
+          color: idle,
           activeColor: accent,
-          onTap: () => context.read<FathomPlayer>().cycleRepeat(),
+          onTap: player.cycleRepeat,
         ),
       ],
     );
@@ -683,7 +496,7 @@ Future<void> showQueueBottomSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.55),
+    barrierColor: FathomColors.shadow.withValues(alpha: 0.55),
     builder: (ctx) => const Padding(
       padding: EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: FractionallySizedBox(

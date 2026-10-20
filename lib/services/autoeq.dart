@@ -90,7 +90,8 @@ class FathomAutoEq {
   /// Downloads the curve described by [entry].
   Future<EqPreset> fetch(AutoEqEntry entry) async {
     final model = entry.path.split('/').last;
-    final body = await _get('$_resultsBase${entry.path}/$model%20FixedBandEQ.txt');
+    final body =
+        await _get('$_resultsBase${entry.path}/$model%20FixedBandEQ.txt');
     final preset = _parseFixedBand(body);
     if (preset == null) {
       throw const AutoEqException(
@@ -134,7 +135,8 @@ class FathomAutoEq {
       if (fc == null || gain == null) return null;
 
       // The published bands sit within a few percent of the Fathom bands.
-      if ((fc - kEq10Bands[gains.length]).abs() > kEq10Bands[gains.length] * 0.1) {
+      if ((fc - kEq10Bands[gains.length]).abs() >
+          kEq10Bands[gains.length] * 0.1) {
         return null;
       }
       gains.add(

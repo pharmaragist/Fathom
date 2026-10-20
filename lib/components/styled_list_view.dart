@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../common/colors.dart';
 import 'glass.dart';
 
 class StyledListView<T extends Object> extends StatefulWidget {
@@ -11,7 +12,7 @@ class StyledListView<T extends Object> extends StatefulWidget {
     required this.itemBuilder,
     required this.labelFor,
     required this.accent,
-    this.header,
+    this.sectionFor,
     this.scrollController,
     this.minItemHeight = 38.0,
     this.maxItemHeight = 90.0,
@@ -23,10 +24,18 @@ class StyledListView<T extends Object> extends StatefulWidget {
   });
 
   final List<T> items;
-  final Widget Function(BuildContext context, T item, int index, double height) itemBuilder;
+  final Widget Function(BuildContext context, T item, int index, double height)
+      itemBuilder;
   final String? Function(int index) labelFor;
+
+  /// Names the section an item belongs to, so a merged list can show where one
+  /// collection stops and the next starts. Null, the default, renders the list
+  /// as one unbroken run exactly as before. Consecutive equal labels collapse
+  /// into a single section, so this is read per index but costs one section per
+  /// change, not one per row.
+  final String? Function(int index)? sectionFor;
+
   final Color accent;
-  final Widget? header;
   final ScrollController? scrollController;
   final double minItemHeight;
   final double maxItemHeight;
@@ -62,7 +71,8 @@ class _StyledListViewState<T extends Object> extends State<StyledListView<T>>
   void didUpdateWidget(StyledListView<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.items, widget.items)) return;
-    final first = _scroll.hasClients ? (_scroll.offset / _itemHeight).floor() : 0;
+    final first =
+        _scroll.hasClients ? (_scroll.offset / _itemHeight).floor() : 0;
     _staggerBase = first < 0 ? 0 : first;
     _enter.forward(from: 0);
   }
@@ -79,8 +89,31 @@ class _StyledListViewState<T extends Object> extends State<StyledListView<T>>
     super.dispose();
   }
 
+  /// Groups [items] into runs sharing one section label, preserving order.
+  List<_Section> _sections() {
+    final items = widget.items;
+    final sectionFor = widget.sectionFor;
+    if (sectionFor == null || items.isEmpty) {
+      return [_Section(null, 0, items.length)];
+    }
+
+    final out = <_Section>[];
+    var i = 0;
+    while (i < items.length) {
+      final label = sectionFor(i);
+      var j = i + 1;
+      while (j < items.length && sectionFor(j) == label) {
+        j++;
+      }
+      out.add(_Section(label, i, j));
+      i = j;
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sections = _sections();
     return GestureDetector(
       onDoubleTap: () => _setHeight(widget.maxItemHeight),
       onScaleUpdate: (d) {
@@ -102,35 +135,95 @@ class _StyledListViewState<T extends Object> extends State<StyledListView<T>>
           controller: _scroll,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            if (widget.header != null) SliverToBoxAdapter(child: widget.header),
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(end: _itemHeight),
-              duration: widget.resizeDuration,
-              curve: Curves.easeOutCubic,
-              builder: (context, extent, _) {
-                return SliverPadding(
-                  padding: EdgeInsets.fromLTRB(4, widget.topInset, 4, widget.bottomInset),
-                  sliver: SliverFixedExtentList(
-                    itemExtent: extent,
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) => _EntranceTile(
-                        animation: _enter,
-                        rank: i - _staggerBase,
-                        child: widget.itemBuilder(context, widget.items[i], i, extent),
-                      ),
-                      childCount: widget.items.length,
-                      addAutomaticKeepAlives: false,
-                      addSemanticIndexes: false,
-                    ),
-                  ),
-                );
-              },
-            ),
+            // Each section owns its own extent animation; they share duration
+            // and curve, so they resize as one list rather than as parts.
+            for (var s = 0; s < sections.length; s++)
+              ..._sectionSlivers(sections[s],
+                  isFirst: s == 0, isLast: s == sections.length - 1),
           ],
         ),
       ),
     );
   }
+
+  List<Widget> _sectionSlivers(
+    _Section section, {
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    if (section.label != null) {
+      // The list sits behind the rail, so section labels need the same
+      // horizontal padding the tiles carry to line up with their text.
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, isFirst ? 4 : 18, 24, 6),
+            child: Text(
+              section.label!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: FathomColors.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        ),
+        _extentSliver(section, isFirst: isFirst, isLast: isLast),
+      ];
+    }
+    return [_extentSliver(section, isFirst: isFirst, isLast: isLast)];
+  }
+
+  Widget _extentSliver(
+    _Section section, {
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _itemHeight),
+      duration: widget.resizeDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, extent, _) {
+        return SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            4,
+            isFirst ? widget.topInset : 0,
+            4,
+            isLast ? widget.bottomInset : 0,
+          ),
+          sliver: SliverFixedExtentList(
+            itemExtent: extent,
+            delegate: SliverChildBuilderDelegate(
+              (context, k) {
+                final i = section.start + k;
+                return _EntranceTile(
+                  animation: _enter,
+                  rank: i - _staggerBase,
+                  child:
+                      widget.itemBuilder(context, widget.items[i], i, extent),
+                );
+              },
+              childCount: section.end - section.start,
+              addAutomaticKeepAlives: false,
+              addSemanticIndexes: false,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One run of consecutive items sharing a label.
+class _Section {
+  const _Section(this.label, this.start, this.end);
+
+  final String? label;
+  final int start;
+
+  /// Exclusive, so `end - start` is the section's length.
+  final int end;
 }
 
 class _EntranceTile extends StatelessWidget {
@@ -253,9 +346,7 @@ class _FastScrollbarState extends State<_FastScrollbar> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.accent;
-    final onAccent = ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
+    final onAccent = FathomColors.onAccent(accent);
     final shown = _visible || _dragging;
 
     return Stack(
@@ -276,20 +367,27 @@ class _FastScrollbarState extends State<_FastScrollbar> {
                   return AnimatedBuilder(
                     animation: widget.controller,
                     builder: (context, _) {
-                      if (!widget.controller.hasClients) return const SizedBox.shrink();
+                      if (!widget.controller.hasClients) {
+                        return const SizedBox.shrink();
+                      }
                       final pos = widget.controller.position;
-                      if (!pos.hasContentDimensions || pos.maxScrollExtent <= 0) {
+                      if (!pos.hasContentDimensions ||
+                          pos.maxScrollExtent <= 0) {
                         return const SizedBox.shrink();
                       }
 
                       final max = pos.maxScrollExtent;
                       final viewport = pos.viewportDimension;
                       final trackHeight = c.maxHeight;
-                      final thumbHeight = (trackHeight * viewport / (viewport + max)).clamp(56.0, trackHeight);
+                      final thumbHeight =
+                          (trackHeight * viewport / (viewport + max))
+                              .clamp(56.0, trackHeight);
                       final range = trackHeight - thumbHeight;
                       final fraction = (pos.pixels / max).clamp(0.0, 1.0);
                       final thumbTop = fraction * range;
-                      final index = widget.itemCount <= 1 ? 0 : (fraction * (widget.itemCount - 1)).round();
+                      final index = widget.itemCount <= 1
+                          ? 0
+                          : (fraction * (widget.itemCount - 1)).round();
                       final label = _dragging ? widget.labelFor(index) : null;
 
                       return Stack(
@@ -329,7 +427,9 @@ class _FastScrollbarState extends State<_FastScrollbar> {
                               onVerticalDragStart: (_) => _dragStart(),
                               onVerticalDragUpdate: (d) {
                                 if (range <= 0) return;
-                                final next = (pos.pixels + d.delta.dy / range * max).clamp(0.0, max);
+                                final next =
+                                    (pos.pixels + d.delta.dy / range * max)
+                                        .clamp(0.0, max);
                                 widget.controller.jumpTo(next);
                               },
                               onVerticalDragEnd: (_) => _dragEnd(),
@@ -341,7 +441,10 @@ class _FastScrollbarState extends State<_FastScrollbar> {
                                   width: _dragging ? 8 : 4,
                                   margin: const EdgeInsets.only(right: 3),
                                   decoration: BoxDecoration(
-                                    color: _dragging ? accent : Colors.white.withValues(alpha: 0.32),
+                                    color: _dragging
+                                        ? accent
+                                        : FathomColors.onSurface
+                                            .withValues(alpha: 0.32),
                                     borderRadius: BorderRadius.circular(99),
                                   ),
                                 ),

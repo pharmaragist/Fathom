@@ -6,14 +6,16 @@ import 'package:just_audio/just_audio.dart';
 import 'package:palette_generator_plus/palette_generator_plus.dart';
 
 import '../models/tracks.dart';
+import '../components/art.dart';
 import '../services/audio.dart';
 import '../services/equalizer.dart';
+import '../services/yt_source.dart';
 import 'constants.dart';
 import 'library.dart';
 import 'settings.dart';
 
 class FathomPlayer extends ChangeNotifier {
-  FathomPlayer(this.settings) {
+  FathomPlayer(this.settings, this.ytSource) {
     _hardwareEqualizer = AndroidEqualizer();
     _audioPlayer = AudioPlayer(
       audioPipeline: AudioPipeline(androidAudioEffects: [_hardwareEqualizer]),
@@ -28,6 +30,10 @@ class FathomPlayer extends ChangeNotifier {
   }
 
   final FathomSettings settings;
+
+  /// Resolves remote tracks at play time. Remote addresses expire, so they are
+  /// never stored on a [FathomTrack].
+  final FathomYtSource ytSource;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   late final AndroidEqualizer _hardwareEqualizer;
@@ -72,28 +78,43 @@ class FathomPlayer extends ChangeNotifier {
   AndroidEqualizer get equalizer => _hardwareEqualizer;
   AndroidEqualizer get hardwareEqualizer => _hardwareEqualizer;
 
+  /// Whether a skip would actually land on a different track.
+  ///
+  /// Deliberately the engine's answer, not a list calculation: shuffle lives
+  /// inside just_audio and never rewrites [_sourceQueue], so whether there is
+  /// a next track depends on where the shuffled order sits, not on whether
+  /// `[_selectedIndex + 1]` happens to exist. Comparing against the current
+  /// index also covers repeat-one and a single-item queue, both of which
+  /// resolve to "next" == "now".
   bool get canSkipNext {
     if (!hasCurrent) return false;
-    switch (repeatMode) {
-      case FathomRepeatMode.one:
-        return false;
-      case FathomRepeatMode.all:
-        return queue.length > 1;
-      case FathomRepeatMode.off:
-        return _selectedIndex < queue.length - 1;
-    }
+    final next = _audioPlayer.nextIndex;
+    return next != null && next != _audioPlayer.currentIndex;
   }
 
   bool get canSkipPrevious {
     if (!hasCurrent) return false;
-    switch (repeatMode) {
-      case FathomRepeatMode.one:
-        return false;
-      case FathomRepeatMode.all:
-        return queue.length > 1;
-      case FathomRepeatMode.off:
-        return _selectedIndex > 0;
-    }
+    final previous = _audioPlayer.previousIndex;
+    return previous != null && previous != _audioPlayer.currentIndex;
+  }
+
+  /// The track a skip would land on, in the engine's own play order — the
+  /// shuffled order when shuffle is on — or null when the skip is blocked.
+  ///
+  /// This is deliberately not `queue[_selectedIndex ± 1]`. Shuffle lives
+  /// inside just_audio and never rewrites `_sourceQueue`, so the list order
+  /// the queue panel edits and the order actually played are two different
+  /// things; asking the engine keeps the covers honest about what a swipe
+  /// will really do, and keeps [queue] free to be only the editable list.
+  FathomTrack? get nextTrack => _neighbour(_audioPlayer.nextIndex, canSkipNext);
+
+  FathomTrack? get previousTrack =>
+      _neighbour(_audioPlayer.previousIndex, canSkipPrevious);
+
+  FathomTrack? _neighbour(int? index, bool allowed) {
+    if (!allowed || index == null || index < 0) return null;
+    if (index >= _sourceQueue.length) return null;
+    return _sourceQueue[index];
   }
 
   void attachLibrary(FathomLibrary library) => _libraryRef = library;
@@ -129,22 +150,76 @@ class FathomPlayer extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Remote addresses, kept only for as long as the queue needs them.
+  final Map<String, Uri> _resolvedYt = {};
+
+  /// Turns tracks into playable sources.
+  ///
+  /// Remote tracks carry no address, so they are resolved here in one batch
+  /// and remembered per `videoId` for as long as the queue holds them. The
+  /// player's queue and just_audio's sources must stay index-aligned, so a
+  /// track whose address cannot be resolved is dropped from both.
+  Future<(List<FathomTrack>, List<AudioSource>)> _resolveAll(
+    List<FathomTrack> tracks,
+  ) async {
+    final missing = tracks
+        .where((t) =>
+            t.origin == TrackOrigin.ytMusic &&
+            !_resolvedYt.containsKey(t.videoId))
+        .map((t) => t.videoId!)
+        .toSet()
+        .toList();
+    if (missing.isNotEmpty) {
+      _resolvedYt.addAll(await ytSource.audioUris(missing));
+    }
+
+    final playable = <FathomTrack>[];
+    final sources = <AudioSource>[];
+    for (final track in tracks) {
+      if (track.origin == TrackOrigin.device) {
+        playable.add(track);
+        sources.add(AudioSource.uri(Uri.parse(track.uri), tag: track.id));
+        continue;
+      }
+
+      final uri = _resolvedYt[track.videoId];
+      if (uri == null) continue;
+      playable.add(track);
+      sources.add(AudioSource.uri(uri, tag: track.id));
+    }
+    return (playable, sources);
+  }
+
   Future<bool> playFrom(List<FathomTrack> list, int index) async {
     if (list.isEmpty || index < 0 || index >= list.length) return false;
 
-    _sourceQueue = List.of(list);
-    _selectedIndex = index;
-    _isSettingQueue = true;
-    notifyListeners();
-
     try {
-      final sources = _sourceQueue
-          .map((t) => AudioSource.uri(Uri.parse(t.uri), tag: t.id))
-          .toList();
+      // A new queue replaces the old one, so its addresses are no longer
+      // needed.
+      _resolvedYt.clear();
+      final (playable, sources) = await _resolveAll(list);
+
+      if (sources.isEmpty) {
+        _lastError = 'No playable audio';
+        notifyListeners();
+        return false;
+      }
+
+      final newIndex = playable.indexWhere((t) => t == list[index]);
+      if (newIndex < 0) {
+        _lastError = 'Could not resolve audio for this track';
+        notifyListeners();
+        return false;
+      }
+
+      _sourceQueue = playable;
+      _selectedIndex = newIndex;
+      _isSettingQueue = true;
+      notifyListeners();
 
       await _audioPlayer.setAudioSources(
         sources,
-        initialIndex: index,
+        initialIndex: newIndex,
         initialPosition: Duration.zero,
       );
 
@@ -177,43 +252,140 @@ class FathomPlayer extends ChangeNotifier {
     }
   }
 
-  void removeAt(int index) {
+  /// Adds tracks to the end of the queue, playing nothing new.
+  Future<bool> enqueue(List<FathomTrack> tracks) =>
+      _insert(tracks, next: false);
+
+  /// Puts tracks immediately after the current one.
+  Future<bool> playNext(List<FathomTrack> tracks) =>
+      _insert(tracks, next: true);
+
+  Future<bool> _insert(List<FathomTrack> tracks, {required bool next}) async {
+    if (tracks.isEmpty) return false;
+    if (!hasCurrent) return playFrom(tracks, 0);
+
+    try {
+      final current = _audioPlayer.currentIndex ?? _selectedIndex;
+      final currentTrack = _sourceQueue[current];
+      final cut = next ? current + 1 : _sourceQueue.length;
+      final rebuilt = [
+        ..._sourceQueue.sublist(0, cut),
+        ...tracks,
+        ..._sourceQueue.sublist(cut),
+      ];
+
+      final (playable, sources) = await _resolveAll(rebuilt);
+      if (sources.isEmpty) return false;
+
+      _sourceQueue = playable;
+      // The current track keeps playing; re-find it in the rebuilt list.
+      final kept = playable.indexOf(currentTrack);
+      _selectedIndex = kept < 0 ? 0 : kept;
+      _isSettingQueue = true;
+      notifyListeners();
+
+      await _audioPlayer.setAudioSources(
+        sources,
+        initialIndex: _selectedIndex,
+        initialPosition: _audioPlayer.position,
+      );
+      await _audioPlayer.setShuffleModeEnabled(shuffle);
+      await _audioPlayer.setLoopMode(_loopModeFor(repeatMode));
+
+      _isSettingQueue = false;
+      _pushMediaItem();
+      return true;
+    } catch (e) {
+      _isSettingQueue = false;
+      _lastError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> removeAt(int index) async {
     if (index < 0 || index >= _sourceQueue.length) return;
     _sourceQueue = List.of(_sourceQueue)..removeAt(index);
 
     if (_sourceQueue.isEmpty) {
       _selectedIndex = -1;
-      _audioPlayer.stop();
     } else if (index < _selectedIndex) {
       _selectedIndex -= 1;
     }
 
+    await _rebuildSources();
     _pushMediaItem();
     _handler?.sync();
-    notifyListeners();
   }
 
-  void moveAt(int from, int to) {
+  /// Moves one queue item to another position.
+  ///
+  /// `to` is the index inside the list that remains after `from` is removed,
+  /// which is what the reorder callback hands over.
+  Future<void> moveAt(int from, int to) async {
     if (from < 0 || from >= _sourceQueue.length) return;
-    if (to < 0 || to > _sourceQueue.length) return;
+    if (to < 0 || to >= _sourceQueue.length) return;
     if (from == to) return;
 
+    final wasSelected = _selectedIndex;
     _sourceQueue = List.of(_sourceQueue);
     final track = _sourceQueue.removeAt(from);
-    final insertIndex = from < to ? to - 1 : to;
-    _sourceQueue.insert(insertIndex, track);
+    _sourceQueue.insert(to, track);
 
-    if (_selectedIndex == from) {
-      _selectedIndex = insertIndex;
-    } else if (from < _selectedIndex && _selectedIndex <= insertIndex) {
-      _selectedIndex -= 1;
-    } else if (insertIndex <= _selectedIndex && _selectedIndex < from) {
-      _selectedIndex += 1;
+    if (wasSelected == from) {
+      _selectedIndex = to;
+    } else if (from < wasSelected && wasSelected <= to) {
+      _selectedIndex = wasSelected - 1;
+    } else if (to <= wasSelected && wasSelected < from) {
+      _selectedIndex = wasSelected + 1;
     }
 
+    await _rebuildSources();
     _pushMediaItem();
     _handler?.sync();
-    notifyListeners();
+  }
+
+  /// Replays the queue into the audio player without changing what is heard.
+  ///
+  /// just_audio holds its own copy of the sources, so every structural edit
+  /// made to [queue] has to be reflected here or the two lists drift apart and
+  /// the wrong track plays next.
+  Future<void> _rebuildSources() async {
+    if (_sourceQueue.isEmpty) {
+      _isSettingQueue = true;
+      notifyListeners();
+      await _audioPlayer.setAudioSources(const []);
+      _isSettingQueue = false;
+      notifyListeners();
+      return;
+    }
+
+    final index = _selectedIndex.clamp(0, _sourceQueue.length - 1);
+    final position = _audioPlayer.position;
+    final wasPlaying = _audioPlayer.playing;
+
+    try {
+      _isSettingQueue = true;
+      notifyListeners();
+
+      final (playable, sources) = await _resolveAll(_sourceQueue);
+      _sourceQueue = playable;
+      _selectedIndex = index.clamp(0, playable.length - 1);
+
+      await _audioPlayer.setAudioSources(
+        sources,
+        initialIndex: _selectedIndex,
+        initialPosition: position,
+      );
+      await _audioPlayer.setShuffleModeEnabled(shuffle);
+      await _audioPlayer.setLoopMode(_loopModeFor(repeatMode));
+      if (wasPlaying) await _audioPlayer.play();
+    } catch (e) {
+      _lastError = e.toString();
+    } finally {
+      _isSettingQueue = false;
+      notifyListeners();
+    }
   }
 
   Future<void> playNow() => _audioPlayer.play();
@@ -255,9 +427,8 @@ class FathomPlayer extends ChangeNotifier {
   Future<void> seekBy(int seconds) async {
     final target = _audioPlayer.position + Duration(seconds: seconds);
     final max = duration ?? const Duration(hours: 1);
-    final clamped = target < Duration.zero
-        ? Duration.zero
-        : (target > max ? max : target);
+    final clamped =
+        target < Duration.zero ? Duration.zero : (target > max ? max : target);
     await _audioPlayer.seek(clamped);
     _handler?.sync();
   }
@@ -305,8 +476,8 @@ class FathomPlayer extends ChangeNotifier {
   ///
   /// The hardware fallback has no preamp stage, so this is a no-op there.
   void setPreamp(double db, {bool persist = false}) {
-    final clamped =
-        db.clamp(-FathomNativeEqualizer.maxPreampDecibels, FathomNativeEqualizer.maxPreampDecibels);
+    final clamped = db.clamp(-FathomNativeEqualizer.maxPreampDecibels,
+        FathomNativeEqualizer.maxPreampDecibels);
     if (_nativeEqReady) unawaited(_nativeEq.setPreamp(clamped));
     settings.stageEqPreamp(clamped);
     if (persist) settings.commitEq();
@@ -381,7 +552,8 @@ class FathomPlayer extends ChangeNotifier {
   /// overrides and falling back to the selected preset.
   List<double> _bandGains10() {
     final gains = settings.eqGains;
-    final presetGains = _presetGains(settings.get<String?>(SettingKey.eqPreset));
+    final presetGains =
+        _presetGains(settings.get<String?>(SettingKey.eqPreset));
     return [
       for (var i = 0; i < kEq10Bands.length; i++)
         gains[kEq10Bands[i]] ?? presetGains?[i] ?? 0.0,
@@ -511,7 +683,8 @@ class FathomPlayer extends ChangeNotifier {
           await band.setGain(clamped);
         }
       }
-      await _hardwareEqualizer.setEnabled(settings.get<bool>(SettingKey.eqEnabled));
+      await _hardwareEqualizer
+          .setEnabled(settings.get<bool>(SettingKey.eqEnabled));
       _eqApplied = true;
     } catch (_) {
       _eqReady = false;
@@ -548,7 +721,7 @@ class FathomPlayer extends ChangeNotifier {
   Future<void> _startPlayback() async {
     try {
       unawaited(_tryApplyEqualizer());
-      if (hasCurrent) unawaited(_extractArtAccent(currentTrack!.id));
+      if (hasCurrent) unawaited(_extractArt(currentTrack!));
       await _audioPlayer.play();
     } catch (e) {
       _lastError = e.toString();
@@ -563,7 +736,7 @@ class FathomPlayer extends ChangeNotifier {
     _selectedIndex = idx;
     _pushMediaItem();
     _handler?.sync();
-    if (hasCurrent) unawaited(_extractArtAccent(currentTrack!.id));
+    if (hasCurrent) unawaited(_extractArt(currentTrack!));
     notifyListeners();
   }
 
@@ -572,12 +745,14 @@ class FathomPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _extractArtAccent(int trackId) async {
-    final library = _libraryRef;
-    if (library == null || !settings.get<bool>(SettingKey.useArtAccent)) return;
+  Future<void> _extractArt(FathomTrack track) async {
+    if (!settings.get<bool>(SettingKey.useArtAccent)) return;
 
     try {
-      final bytes = await library.artFor(trackId);
+      final library = _libraryRef;
+      if (library == null) return;
+      final bytes = await trackArtBytes(library, track);
+
       if (bytes == null || bytes.isEmpty) {
         settings.updateArtAccent(null);
         return;
@@ -599,9 +774,14 @@ class FathomPlayer extends ChangeNotifier {
   }
 
   MediaItem _mediaItemFor(FathomTrack t) {
-    final artUri = _libraryRef?.artUriForTrack(t);
+    // A remote track has no uri yet, so its identity for the notification is
+    // the videoId.
+    final id = t.origin == TrackOrigin.ytMusic ? 'yt:${t.videoId}' : t.uri;
+    final artUri = t.origin == TrackOrigin.ytMusic
+        ? t.thumbUri
+        : _libraryRef?.artUriForTrack(t);
     return MediaItem(
-      id: t.uri,
+      id: id,
       title: t.title,
       artist: t.artist,
       duration:

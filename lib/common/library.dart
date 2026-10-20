@@ -39,7 +39,8 @@ class FathomLibrary extends ChangeNotifier {
   }
 
   Uri? artUriForTrack(FathomTrack track) {
-    return Uri.parse('content://media/external/audio/media/${track.id}/albumart');
+    return Uri.parse(
+        'content://media/external/audio/media/${track.id}/albumart');
   }
 
   Future<Uint8List?> _fetchArtwork(int id) async {
