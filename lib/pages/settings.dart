@@ -9,17 +9,10 @@ import '../common/constants.dart';
 import '../common/library.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
+import '../components/flat_switch.dart';
 import '../components/glass.dart';
+import '../services/power.dart';
 import 'library.dart' show LibrarySort;
-
-const Color _divider = Color(0xFF1C1C1C);
-const Color _switchOff = Color(0xFF262626);
-const Color _knobOff = Color(0xFF8C8C8C);
-
-Color _onColor(Color c) =>
-    ThemeData.estimateBrightnessForColor(c) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -36,8 +29,8 @@ class SettingsPage extends StatelessWidget {
     final accent = settings.accent;
 
     final sortIndex = settings.get<int>(SettingKey.sortIndex);
-    final sort = LibrarySort
-        .values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
+    final sort =
+        LibrarySort.values[sortIndex.clamp(0, LibrarySort.values.length - 1)];
 
     final useArtAccent = settings.get<bool>(SettingKey.useArtAccent);
     final accentSubtitle = useArtAccent ? 'Auto (Artwork)' : 'Manual';
@@ -46,10 +39,18 @@ class SettingsPage extends StatelessWidget {
     final fontFamily = fontKey == 'Oswald' ? 'Oswald' : null;
 
     final speedIndex = settings.get<int>(SettingKey.speedIndex);
+    final themeIndex = settings.get<int>(SettingKey.themeIndex).clamp(0, 2);
     final gapless = settings.get<bool>(SettingKey.gapless);
+    final dataSave = settings.get<bool>(SettingKey.dataSave);
+    // The row shows the effective state, not the stored preference: while the
+    // device saves power, low-end is on and locked, and `settings.lowEndInForce`
+    // is the same answer the app's glass sync uses.
+    final powerSave =
+        context.select<FathomPowerState, bool>((p) => p.isPowerSave);
+    final lowEnd = settings.lowEndInForce(powerSave: powerSave);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: FathomColors.background,
       body: DefaultTextStyle(
         style: TextStyle(fontFamily: fontFamily),
         child: SingleChildScrollView(
@@ -61,21 +62,22 @@ class SettingsPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
                     child: Text(
                       'Settings',
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,
-                        color: Colors.white,
+                        color: FathomColors.onSurface,
                       ),
                     ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(TablerIcons.x, color: Colors.white, size: 24),
+                    icon: Icon(TablerIcons.x,
+                        color: FathomColors.onSurface, size: 24),
                   ),
                 ],
               ),
@@ -129,6 +131,23 @@ class SettingsPage extends StatelessWidget {
                 ],
               ),
               _Section(
+                title: 'Data',
+                accent: accent,
+                children: [
+                  _SwitchRow(
+                    icon: TablerIcons.cloudDownload,
+                    accent: accent,
+                    label: 'Data save mode',
+                    value: dataSave,
+                    onChanged: (v) {
+                      context
+                          .read<FathomSettings>()
+                          .set(SettingKey.dataSave, v);
+                    },
+                  ),
+                ],
+              ),
+              _Section(
                 title: 'Appearance',
                 accent: accent,
                 children: [
@@ -145,7 +164,7 @@ class SettingsPage extends StatelessWidget {
                         color: accent,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.35),
+                          color: FathomColors.onSurface.withValues(alpha: 0.35),
                           width: 1,
                         ),
                       ),
@@ -158,6 +177,31 @@ class SettingsPage extends StatelessWidget {
                     label: 'Typography',
                     value: fontKey,
                     onTap: () => _showTypographySheet(context),
+                  ),
+                  _NavRow(
+                    icon: TablerIcons.sunMoon,
+                    accent: accent,
+                    label: 'Theme',
+                    value: _kThemeLabels[themeIndex],
+                    onTap: () => _showThemeSheet(context),
+                  ),
+                  // Swapping the frosted glass surfaces for flat translucent
+                  // cards is a look-and-feel tradeoff, so it lives with the
+                  // other appearance choices rather than in the Data section.
+                  // Battery saver overrides it: the device is already working
+                  // to save power, so the blur goes and the row reads as ON and
+                  // locked, with the reason underneath. The stored preference
+                  // is untouched and comes back the moment power save ends.
+                  _SwitchRow(
+                    icon: TablerIcons.feather,
+                    accent: accent,
+                    label: 'Low-end mode',
+                    value: lowEnd,
+                    enabled: !powerSave,
+                    hint: powerSave ? 'On: battery saver' : null,
+                    onChanged: (v) {
+                      context.read<FathomSettings>().set(SettingKey.lowEnd, v);
+                    },
                   ),
                 ],
               ),
@@ -179,7 +223,7 @@ Future<void> _showSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.6),
+    barrierColor: FathomColors.scrim,
     builder: (ctx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -201,11 +245,11 @@ Future<void> _showSheet(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
-                        color: Colors.white,
+                        color: FathomColors.onSurface,
                       ),
                     ),
                   ),
@@ -272,6 +316,34 @@ void _showSpeedSheet(BuildContext context) {
   );
 }
 
+const _kThemeLabels = <String>['Light', 'Dark', 'Auto (Device)'];
+
+void _showThemeSheet(BuildContext context) {
+  final settings = context.read<FathomSettings>();
+  final accent = settings.accent;
+  final currentThemeIndex =
+      settings.get<int>(SettingKey.themeIndex).clamp(0, 2);
+
+  _showSheet(
+    context,
+    title: 'Theme',
+    builder: (ctx) => Column(
+      children: [
+        for (var i = 0; i < _kThemeLabels.length; i++)
+          _OptionRow(
+            label: _kThemeLabels[i],
+            selected: currentThemeIndex == i,
+            accent: accent,
+            onTap: () {
+              settings.set(SettingKey.themeIndex, i);
+              Navigator.of(ctx).maybePop();
+            },
+          ),
+      ],
+    ),
+  );
+}
+
 void _showAccentSheet(BuildContext context) {
   _showSheet(
     context,
@@ -293,14 +365,15 @@ void _showAccentSheet(BuildContext context) {
                   accent: accent,
                   label: 'Match track artwork',
                   value: useArt,
-                  onChanged: (val) => settings.set(SettingKey.useArtAccent, val),
+                  onChanged: (val) =>
+                      settings.set(SettingKey.useArtAccent, val),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Divider(
                     height: 1,
                     thickness: 1,
-                    color: _divider,
+                    color: FathomColors.hairline,
                   ),
                 ),
                 Wrap(
@@ -322,8 +395,9 @@ void _showAccentSheet(BuildContext context) {
                             color: FathomColors.accentSwatches[i],
                             border: Border.all(
                               color: (!useArt && currentAccentIndex == i)
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.14),
+                                  ? FathomColors.onSurface
+                                  : FathomColors.onSurface
+                                      .withValues(alpha: 0.14),
                               width: (!useArt && currentAccentIndex == i)
                                   ? 2.5
                                   : 1,
@@ -333,7 +407,8 @@ void _showAccentSheet(BuildContext context) {
                               ? Icon(
                                   TablerIcons.check,
                                   size: 22,
-                                  color: _onColor(FathomColors.accentSwatches[i]),
+                                  color: FathomColors.onAccent(
+                                      FathomColors.accentSwatches[i]),
                                 )
                               : null,
                         ),
@@ -393,11 +468,11 @@ class _Section extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       rows.add(children[i]);
       if (i != children.length - 1) {
-        rows.add(const Divider(
+        rows.add(Divider(
           height: 1,
           thickness: 1,
           indent: 62,
-          color: _divider,
+          color: FathomColors.hairline,
         ));
       }
     }
@@ -412,13 +487,14 @@ class _Section extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.9,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: FathomColors.onSurface.withValues(alpha: 0.4),
             ),
           ),
         ),
-        GlassContainer(
+        // A section is a panel in the page's own layout, sitting behind rows
+        // that are all opaque, so there is nothing behind it worth sampling.
+        FlatContainer(
           radius: 20,
-          bgOpacity: 0.4,
           borderOpacity: 0.07,
           accent: accent,
           child: Material(
@@ -458,6 +534,8 @@ class _RowShell extends StatelessWidget {
     required this.label,
     required this.trailing,
     required this.onTap,
+    this.enabled = true,
+    this.hint,
   });
 
   final IconData icon;
@@ -466,24 +544,57 @@ class _RowShell extends StatelessWidget {
   final Widget trailing;
   final VoidCallback onTap;
 
+  /// False dims the row and drops its tap, for a row whose value is being
+  /// decided elsewhere. Defaults to true so every existing caller is unchanged.
+  final bool enabled;
+
+  /// One short line under the label explaining a state the user did not
+  /// choose, such as why a row is locked. Null renders nothing, and the row
+  /// height is unchanged either way for rows that omit it.
+  final String? hint;
+
   @override
   Widget build(BuildContext context) {
+    final hint = this.hint;
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         child: Row(
           children: [
-            _IconTile(icon: icon, accent: accent),
+            Opacity(
+              opacity: enabled ? 1 : 0.4,
+              child: _IconTile(icon: icon, accent: accent),
+            ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      // A row locked by device state can only dim; it has no
+                      // disabled tone of its own to switch to.
+                      color: enabled
+                          ? FathomColors.onSurface
+                          : FathomColors.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  if (hint != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      hint,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: FathomColors.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             trailing,
@@ -528,7 +639,7 @@ class _NavRow extends StatelessWidget {
               value!,
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: FathomColors.onSurface.withValues(alpha: 0.5),
               ),
             ),
           if (valueWidget != null) valueWidget!,
@@ -537,7 +648,7 @@ class _NavRow extends StatelessWidget {
             Icon(
               TablerIcons.chevronRight,
               size: 20,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: FathomColors.onSurface.withValues(alpha: 0.3),
             ),
           ],
         ],
@@ -553,6 +664,8 @@ class _SwitchRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.enabled = true,
+    this.hint,
   });
 
   final IconData icon;
@@ -561,49 +674,29 @@ class _SwitchRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
+  /// False shows the switch in its disabled state and ignores taps. The row is
+  /// still rendered, because a state the user cannot change is worth showing;
+  /// `hint` is where the reason goes.
+  final bool enabled;
+
+  /// Short explanation shown under the label while the row is locked.
+  final String? hint;
+
   @override
   Widget build(BuildContext context) {
     return _RowShell(
       icon: icon,
       accent: accent,
       label: label,
+      enabled: enabled,
+      hint: hint,
       onTap: () => onChanged(!value),
-      trailing: _FlatSwitch(value: value, accent: accent),
-    );
-  }
-}
-
-class _FlatSwitch extends StatelessWidget {
-  const _FlatSwitch({required this.value, required this.accent});
-
-  final bool value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      width: 50,
-      height: 30,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: value ? accent : _switchOff,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutBack,
-        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: value ? _onColor(accent) : _knobOff,
-          ),
-        ),
+      // A disabled `FlatSwitch` already owns the dimming and the dropped tap,
+      // so `enabled` is passed straight through rather than re-styled here.
+      trailing: FlatSwitch(
+        value: value,
+        accent: accent,
+        onChanged: enabled ? (_) {} : null,
       ),
     );
   }
@@ -629,7 +722,7 @@ class _OptionRow extends StatelessWidget {
     final base = TextStyle(
       fontSize: 16,
       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      color: selected ? accent : Colors.white,
+      color: selected ? accent : FathomColors.onSurface,
     );
     return InkWell(
       borderRadius: BorderRadius.circular(16),
