@@ -5,31 +5,49 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
+import '../common/colors.dart';
+import '../content.dart' show ShellPage;
+
 const double kPillHeight = 64;
 const double kHorizontalMargin = 4;
 const double kElevationMargin = 6;
 const double kNavBarHeight = 64;
 
+/// Horizontal inset of the drawn pill inside one nav item's slot. The slot is
+/// wider than the two items need, so the highlight reads as a pill behind the
+/// item rather than a band touching its neighbours.
+const double kPillInset = 6;
+
+/// How long the one background takes to travel between its two homes: from
+/// behind the active nav item out to the whole search toolbar, and back. Long
+/// enough to read as growth rather than a jump; it matches the nav item slide,
+/// so both moves look like one gesture.
+const Duration kBackgroundDuration = Duration(milliseconds: 380);
+
+/// The curve that growth uses. The overshoot is what sells the pill "popping"
+/// into the search field, and reversing through the same curve settles it back
+/// under the item on collapse.
+const Curve kBackgroundCurve = Curves.easeOutBack;
+
 class FloatingNavRail extends StatefulWidget {
   const FloatingNavRail({
     super.key,
-    required this.index,
     required this.accent,
     required this.bottomSafe,
-    required this.onChanged,
     required this.searchController,
     required this.query,
     required this.onSearchChanged,
     required this.onSearchCleared,
     required this.onSearchOpenChanged,
-    required this.sortLabel,
-    required this.onSort,
+    required this.page,
+    required this.onGoTo,
+    this.sortLabel,
+    this.onSort,
+    this.hintText = 'Search library and YouTube',
   });
 
-  final int index;
   final Color accent;
   final double bottomSafe;
-  final ValueChanged<int> onChanged;
   final TextEditingController searchController;
 
   /// The applied filter, the same value the library list is driven by. It stays
@@ -41,8 +59,20 @@ class FloatingNavRail extends StatefulWidget {
   /// Reports the expanded state so the shell can put a dismiss layer over the
   /// pages for as long as the query field is on screen.
   final ValueChanged<bool> onSearchOpenChanged;
-  final String sortLabel;
-  final VoidCallback onSort;
+
+  /// The destination on screen, which is what marks its nav item active.
+  final ValueListenable<ShellPage> page;
+
+  /// Moves the shell to another destination.
+  final ValueChanged<ShellPage> onGoTo;
+
+  /// Sorting is a Library concern; absent when the active page has no order.
+  final String? sortLabel;
+  final VoidCallback? onSort;
+
+  /// Names the source the field is editing, so it never lies about what a
+  /// keystroke filters.
+  final String hintText;
 
   @override
   State<FloatingNavRail> createState() => _FloatingNavRailState();
@@ -55,10 +85,8 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
   Timer? _debounce;
   final FocusNode _searchFocus = FocusNode();
 
-  static const _items = [
-    (label: 'Library', icon: TablerIcons.discFilled),
-    (label: 'Equalizer', icon: TablerIcons.waveSine),
-  ];
+  /// The rail carries the two destinations plus the search button, which is
+  /// what it actually does beyond navigation.
 
   @override
   void initState() {
@@ -116,8 +144,21 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
     setState(() => _isSearching = false);
     widget.onSearchOpenChanged(false);
     // Drop focus after clearing the flag so the focus listener does not
-    // re-enter this branch.
+    // re-enter this branch. The layer stays up while the field is focused, so
+    // a page tap only collapses the keyboard first; the layer takes the second
+    // tap.
     _searchFocus.unfocus();
+  }
+
+  /// Reopens the field with the held query, caret at the end, so a search can
+  /// be refined instead of cleared and retyped.
+  void _editQuery() {
+    final text = widget.query.value;
+    widget.searchController.text = text;
+    widget.searchController.selection = TextSelection.collapsed(
+      offset: text.length,
+    );
+    _toggleSearch(true);
   }
 
   Widget _switcherLayout(Widget? current, List<Widget> previous) {
@@ -131,7 +172,6 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
   @override
   Widget build(BuildContext context) {
     final notchDepth = kPillHeight / 2 + kElevationMargin;
-    final count = _items.length;
 
     return SizedBox(
       width: double.infinity,
@@ -149,8 +189,8 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.14),
-                        Colors.white.withValues(alpha: 0.04),
+                        FathomColors.onSurface.withValues(alpha: 0.14),
+                        FathomColors.onSurface.withValues(alpha: 0.04),
                       ],
                     ),
                   ),
@@ -169,106 +209,133 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
                 builder: (context, constraints) {
                   final totalWidth = constraints.maxWidth;
                   const searchBtnWidth = 48.0;
-                  final availableWidth = totalWidth - searchBtnWidth;
-                  final itemWidth = availableWidth / count;
 
-                  final double indicatorLeft = _isSearching
-                      ? 0.0
-                      : searchBtnWidth + (widget.index * itemWidth);
-                  final double indicatorWidth =
-                      _isSearching ? totalWidth : itemWidth;
+                  return ValueListenableBuilder<String>(
+                    valueListenable: widget.query,
+                    builder: (context, query, _) {
+                      // A held query widens the leading slot into the
+                      // edit-and-clear pair.
+                      final hasQuery = query.isNotEmpty;
+                      final leadingWidth =
+                          hasQuery ? searchBtnWidth * 2 : searchBtnWidth;
+                      // The nav area starts after the search control. The
+                      // background collapses back into it; the navLeft and
+                      // navWidth it needs are the same split, since the rail's
+                      // left edge is this box's zero.
+                      final navLeft = leadingWidth;
+                      final navWidth = totalWidth - leadingWidth;
 
-                  return Stack(
-                    children: [
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 380),
-                        curve: Curves.easeOutBack,
-                        left: indicatorLeft,
-                        width: indicatorWidth,
-                        top: 0,
-                        bottom: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 8),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 280),
-                            decoration: BoxDecoration(
-                              color: widget.accent
-                                  .withValues(alpha: _isSearching ? 0.1 : 0.18),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: widget.accent.withValues(
-                                    alpha: _isSearching ? 0.35 : 0.0),
-                                width: 1,
+                      return Stack(
+                        children: [
+                          // The one background, under everything, so its geometry
+                          // never depends on which mode is on screen. It has two
+                          // homes: behind the active nav item, and the whole
+                          // rail once the field expands.
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: _NavBackground(
+                                accent: widget.accent,
+                                page: widget.page,
+                                expanded: _isSearching,
+                                totalWidth: totalWidth,
+                                navLeft: navLeft,
+                                navWidth: navWidth,
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 280),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          layoutBuilder: _switcherLayout,
-                          child: _isSearching
-                              ? _NavSearchContent(
-                                  key: const ValueKey('search_mode'),
-                                  controller: widget.searchController,
-                                  accent: widget.accent,
-                                  sortLabel: widget.sortLabel,
-                                  onSort: widget.onSort,
-                                  onChanged: _onQueryChanged,
-                                  onSubmitted: _onQuerySubmitted,
-                                  onClose: () => _toggleSearch(false),
-                                  focusNode: _searchFocus,
-                                )
-                              : Row(
-                                  key: const ValueKey('nav_mode'),
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    SizedBox(
-                                      width: searchBtnWidth,
-                                      child: ValueListenableBuilder<String>(
-                                        valueListenable: widget.query,
-                                        builder: (context, query, _) {
-                                          final hasQuery = query.isNotEmpty;
-                                          // A held query turns the lens into a
-                                          // dismiss button: tapping it drops
-                                          // the query and the library goes
-                                          // back to the full list.
-                                          return IconButton(
-                                            icon: Icon(
-                                              hasQuery
-                                                  ? TablerIcons.x
-                                                  : TablerIcons.search,
-                                              size: 20,
+                          // The pill sits above the background while idle, which
+                          // is what keeps the active icon and label readable on
+                          // the accent fill rather than under it. In search mode
+                          // the field is the only content on this box, so it
+                          // reaches the background because nothing overlaps it.
+                          if (!_isSearching)
+                            Positioned(
+                              left: navLeft,
+                              width: navWidth,
+                              top: 0,
+                              bottom: 0,
+                              child: _NavItems(
+                                page: widget.page,
+                                onGoTo: widget.onGoTo,
+                              ),
+                            ),
+                          Positioned.fill(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              layoutBuilder: _switcherLayout,
+                              child: _isSearching
+                                  ? _NavSearchContent(
+                                      key: const ValueKey('search_mode'),
+                                      controller: widget.searchController,
+                                      accent: widget.accent,
+                                      sortLabel: widget.sortLabel,
+                                      onSort: widget.onSort,
+                                      hintText: widget.hintText,
+                                      onChanged: _onQueryChanged,
+                                      onSubmitted: _onQuerySubmitted,
+                                      onClose: () => _toggleSearch(false),
+                                      focusNode: _searchFocus,
+                                    )
+                                  : Row(
+                                      key: const ValueKey('nav_mode'),
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        if (hasQuery) ...[
+                                          // A held query shows how to edit it
+                                          // beside the button that drops it.
+                                          SizedBox(
+                                            width: searchBtnWidth,
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                  TablerIcons.pencil,
+                                                  size: 18),
+                                              color: FathomColors.onSurface
+                                                  .withValues(alpha: 0.9),
+                                              onPressed: _editQuery,
                                             ),
-                                            color: Colors.white.withValues(
-                                                alpha: hasQuery ? 0.9 : 0.72),
-                                            onPressed: hasQuery
-                                                ? widget.onSearchCleared
-                                                : () => _toggleSearch(true),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    for (var i = 0; i < count; i++)
-                                      Expanded(
-                                        child: _NavItem(
-                                          label: _items[i].label,
-                                          icon: _items[i].icon,
-                                          selected: widget.index == i,
-                                          accent: widget.accent,
-                                          onTap: () => widget.onChanged(i),
+                                          ),
+                                          SizedBox(
+                                            width: searchBtnWidth,
+                                            child: IconButton(
+                                              icon: const Icon(TablerIcons.x,
+                                                  size: 20),
+                                              color: FathomColors.onSurface
+                                                  .withValues(alpha: 0.9),
+                                              onPressed: widget.onSearchCleared,
+                                            ),
+                                          ),
+                                        ] else
+                                          SizedBox(
+                                            width: searchBtnWidth,
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                  TablerIcons.search,
+                                                  size: 20),
+                                              color: FathomColors.onSurface
+                                                  .withValues(alpha: 0.72),
+                                              onPressed: () =>
+                                                  _toggleSearch(true),
+                                            ),
+                                          ),
+                                        // The background layer already drew
+                                        // this area's pill, so the nav content
+                                        // only has to fill the same box.
+                                        Expanded(
+                                          child: _NavItems(
+                                            page: widget.page,
+                                            onGoTo: widget.onGoTo,
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ],
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               ),
@@ -285,8 +352,9 @@ class _NavSearchContent extends StatelessWidget {
     super.key,
     required this.controller,
     required this.accent,
-    required this.sortLabel,
-    required this.onSort,
+    this.sortLabel,
+    this.onSort,
+    required this.hintText,
     required this.onChanged,
     required this.onSubmitted,
     required this.onClose,
@@ -295,8 +363,11 @@ class _NavSearchContent extends StatelessWidget {
 
   final TextEditingController controller;
   final Color accent;
-  final String sortLabel;
-  final VoidCallback onSort;
+
+  /// Sorting is a Library concern; absent when the active page has no order.
+  final String? sortLabel;
+  final VoidCallback? onSort;
+  final String hintText;
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClose;
@@ -337,10 +408,10 @@ class _NavSearchContent extends StatelessWidget {
               autocorrect: false,
               enableSuggestions: false,
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.2,
-                color: Colors.white,
+                color: FathomColors.onSurface,
               ),
               cursorColor: accent,
               cursorHeight: 18,
@@ -350,17 +421,18 @@ class _NavSearchContent extends StatelessWidget {
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
-                hintText: 'Search library',
+                hintText: hintText,
                 hintStyle: TextStyle(
                   fontSize: 14,
                   height: 1.2,
-                  color: Colors.white.withValues(alpha: 0.38),
+                  color: FathomColors.onSurface.withValues(alpha: 0.38),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          _SortChip(label: sortLabel, accent: accent, onTap: onSort),
+          if (sortLabel != null)
+            _SortChip(label: sortLabel!, accent: accent, onTap: onSort!),
           const SizedBox(width: 6),
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
@@ -368,7 +440,7 @@ class _NavSearchContent extends StatelessWidget {
               return _RoundIconButton(
                 icon:
                     value.text.isEmpty ? TablerIcons.x : TablerIcons.backspace,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: FathomColors.onSurface.withValues(alpha: 0.6),
                 onTap: _handleTrailing,
               );
             },
@@ -408,11 +480,11 @@ class _SortChip extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   height: 1.1,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: FathomColors.onSurface,
                 ),
               ),
             ],
@@ -488,58 +560,174 @@ class _NotchedNavClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant _NotchedNavClipper oldClipper) => false;
 }
 
+/// The two nav destinations in rail order.
+///
+/// The two items always fill the nav area, so the background that sits behind
+/// them is a separate layer ([_NavBackground]) rather than a second pass of this
+/// layout. Nothing here needs to know that background exists.
+class _NavItems extends StatelessWidget {
+  const _NavItems({required this.page, required this.onGoTo});
+
+  final ValueListenable<ShellPage> page;
+  final ValueChanged<ShellPage> onGoTo;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ShellPage>(
+      valueListenable: page,
+      builder: (context, current, _) {
+        final library = _NavItem(
+          icon: TablerIcons.discFilled,
+          label: 'Library',
+          active: current == ShellPage.library,
+          onTap: () => onGoTo(ShellPage.library),
+        );
+        final equalizer = _NavItem(
+          icon: TablerIcons.waveSine,
+          label: 'Equalizer',
+          active: current == ShellPage.equalizer,
+          onTap: () => onGoTo(ShellPage.equalizer),
+        );
+
+        // Half the nav area per destination, in rail order. The two items share
+        // the width evenly, and the background reads the same split off its own
+        // box, which is the nav area too.
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: library),
+            Expanded(child: equalizer),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The single background of the rail, in both of its states.
+///
+/// It exists to make the search field look like it *comes from* the active nav
+/// item: idle, it is a rounded accent pill behind Library or Equalizer; expanded,
+/// it stretches left to the rail's leading edge and out to the full width, i.e.
+/// the toolbar background. Animating the same element between those two boxes is
+/// what reads as the pill growing into the field; two separate elements could
+/// only cross-fade, which would lose the connection.
+///
+/// The geometry is resolved against the full rail width rather than the nav area
+/// alone, because the expanded state has to reach past the nav area's left edge.
+class _NavBackground extends StatelessWidget {
+  const _NavBackground({
+    required this.accent,
+    required this.page,
+    required this.expanded,
+    required this.totalWidth,
+    required this.navLeft,
+    required this.navWidth,
+  });
+
+  final Color accent;
+  final ValueListenable<ShellPage> page;
+
+  /// True while the search field is on screen, i.e. while this is the toolbar's
+  /// background instead of one item's highlight.
+  final bool expanded;
+
+  final double totalWidth;
+
+  /// The nav area's left edge, which is where the idle geometry starts counting.
+  final double navLeft;
+  final double navWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ShellPage>(
+      valueListenable: page,
+      builder: (context, current, _) {
+        // The item's slot as this layer measures it: the nav area split in two,
+        // in rail order. Which slot is active tracks the page, so switching
+        // destinations slides the pill rather than teleporting it.
+        final half = navWidth / 2;
+        final active = current == ShellPage.library ? 0 : 1;
+
+        // Idle: the pill, inset inside the active item's slot. The insets keep
+        // it off the item's neighbours and off the rail's top and bottom edges,
+        // so it reads as a highlight under the icon and label.
+        //
+        // Expanded: the same pill stretched to the rail's width to become the
+        // search field's background. Only left and width grow; the vertical
+        // inset is kept, so the field keeps the button's height instead of
+        // becoming a bar the full height of the rail.
+        final left = expanded ? 0.0 : navLeft + active * half + kPillInset;
+        final width = expanded ? totalWidth : half - kPillInset * 2;
+
+        return Stack(
+          children: [
+            AnimatedPositioned(
+              duration: kBackgroundDuration,
+              curve: kBackgroundCurve,
+              left: left,
+              width: width,
+              // Constant in both states, hence the shared inset: the pill and
+              // the search background are the same height, so expanding reads
+              // as the pill sliding wide rather than the box changing shape.
+              top: kPillInset,
+              bottom: kPillInset,
+              child: AnimatedContainer(
+                // Slow enough to follow the accent swatch changing in settings
+                // without lagging behind the position animation.
+                duration: const Duration(milliseconds: 280),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// One destination: an icon over a label, lit when it is the page on screen.
 class _NavItem extends StatelessWidget {
   const _NavItem({
-    required this.label,
     required this.icon,
-    required this.selected,
-    required this.accent,
+    required this.label,
+    required this.active,
     required this.onTap,
   });
 
-  final String label;
   final IconData icon;
-  final bool selected;
-  final Color accent;
+  final String label;
+  final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final target = selected ? accent : Colors.white.withValues(alpha: 0.72);
-    final baseTextStyle = Theme.of(context).textTheme.bodyMedium;
+    final fg = active
+        ? FathomColors.onSurface
+        : FathomColors.onSurface.withValues(alpha: 0.5);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
       onTap: onTap,
-      child: TweenAnimationBuilder<Color?>(
-        tween: ColorTween(end: target),
-        duration: const Duration(milliseconds: 260),
-        builder: (context, color, _) {
-          final fg = color ?? target;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              AnimatedScale(
-                scale: selected ? 1.12 : 1.0,
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutBack,
-                child: Icon(icon, size: 18, color: fg),
-              ),
-              const SizedBox(width: 8),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 260),
-                style: (baseTextStyle ?? const TextStyle()).copyWith(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: fg,
-                  letterSpacing: -0.2,
-                ),
-                child: Text(label),
-              ),
-            ],
-          );
-        },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }
