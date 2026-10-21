@@ -53,3 +53,7 @@ app.*.map.json
 # Generated launch-video output from the brag workflow: a build artifact, not
 # source.
 brag-output-*/
+
+# Gradle problem reports are generated per build; they used to be tracked and
+# showed up as a modified file after every run.
+/android/build/
