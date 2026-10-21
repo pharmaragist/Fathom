@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
@@ -142,6 +143,11 @@ class LibraryPage extends StatefulWidget {
 class _LibraryPageState extends State<LibraryPage> {
   final ScrollController _scroll = ScrollController();
 
+  /// Raised while a remote result's tap is fetching it, so a second tap on the
+  /// same row is ignored instead of starting an overlapping fetch the download
+  /// service would only refuse anyway.
+  final Set<String> _fetching = <String>{};
+
   List<FathomTrack>? _sortedSource;
   LibrarySort? _sortedWith;
   List<FathomTrack> _sortedList = const [];
@@ -220,7 +226,8 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Future<void> _runSearch(String query) async {
-    final source = context.read<FathomPlayer>().ytSource;
+    final downloads = context.read<FathomDownloads>();
+    final source = downloads.source;
     final thrifty =
         context.read<FathomSettings>().get<bool>(SettingKey.dataSave);
 
@@ -242,7 +249,6 @@ class _LibraryPageState extends State<LibraryPage> {
 
     final collected = <FathomTrack>[];
     final seen = <String>{};
-    final downloads = context.read<FathomDownloads>();
     _ytSub = source
         .search(
       query,
@@ -259,9 +265,17 @@ class _LibraryPageState extends State<LibraryPage> {
         collected.add(FathomTrack.yt(item));
         setState(() => _ytResults = List.of(collected));
       },
-      onError: (Object _) {
+      onError: (Object error) {
         if (token != _ytToken) return;
-        setState(() => _ytSearching = false);
+        // The stream carries the reason the search died; dropping it here
+        // leaves the empty-state panel claiming "No matches" for a search that
+        // never ran, which reads as a wrong answer rather than a failure.
+        setState(() {
+          _ytSearching = false;
+          _ytError = error is PlatformException && error.code == 'RECAPTCHA'
+              ? 'YouTube asked for a captcha before it would search'
+              : 'YouTube search failed: $error';
+        });
       },
       onDone: () {
         if (token != _ytToken) return;
@@ -304,6 +318,25 @@ class _LibraryPageState extends State<LibraryPage> {
       final hay = _haystacks[t.id] ?? '';
       return tokens.every(hay.contains);
     }).toList(growable: false);
+  }
+
+  /// Fetches a remote search result, which is all a tap on one can mean.
+  ///
+  /// Playing it is a second tap, once the file exists: a remote item carries no
+  /// address and nothing remote is streamed, so there is nothing to play yet.
+  Future<void> _fetch(FathomTrack track) async {
+    final videoId = track.videoId;
+    if (videoId == null || !_fetching.add(videoId)) return;
+    setState(() {});
+    try {
+      await downloadTrack(context, track);
+    } finally {
+      if (mounted) {
+        setState(() => _fetching.remove(videoId));
+      } else {
+        _fetching.remove(videoId);
+      }
+    }
   }
 
   void _play(List<FathomTrack> tracks, int index) {
@@ -368,7 +401,7 @@ class _LibraryPageState extends State<LibraryPage> {
           icon: TablerIcons.searchOff,
           title: _ytError == null ? 'No matches' : 'YouTube search failed',
           message: _ytError != null
-              ? '$_ytError. Try again shortly.'
+              ? _ytError!
               : 'Nothing found for "${query.trim()}" on this device or YouTube.',
           accent: accent,
           action: 'Clear search',
@@ -401,7 +434,8 @@ class _LibraryPageState extends State<LibraryPage> {
         final local =
             ready ? _visibleTracks(source, sort, query) : const <FathomTrack>[];
         // Remote results tail the local ones so one field searches both
-        // collections; both halves are played as one queue either way.
+        // collections. They are a list of things to *get*, not a second half of
+        // a play queue: only a downloaded file can play.
         final tracks =
             searching ? <FathomTrack>[...local, ..._ytResults] : local;
         final showsList = tracks.isNotEmpty;
@@ -432,7 +466,15 @@ class _LibraryPageState extends State<LibraryPage> {
                   heroFromPanel: widget.heroFromPanel,
                   track: track,
                   height: height,
-                  onTap: () => _play(tracks, i),
+                  // A remote result has no audio to play, so its tap fetches it
+                  // instead; it becomes a playable device track the moment the
+                  // file lands and the list rescans, and the *next* tap plays
+                  // it. The long-press menu keeps the honest names for both.
+                  onTap: () => track.origin == TrackOrigin.device
+                      ? _play(tracks, i)
+                      : _fetch(track),
+                  fetching: track.videoId != null &&
+                      _fetching.contains(track.videoId),
                   onLongPress: () => showTrackActions(
                     context,
                     track,
@@ -453,6 +495,7 @@ class TrackTile extends StatelessWidget {
     required this.onTap,
     this.heroFromPanel,
     this.onLongPress,
+    this.fetching = false,
   });
 
   final FathomTrack track;
@@ -466,6 +509,10 @@ class TrackTile extends StatelessWidget {
   /// The library's per-track action sheet; surfaces that keep their rows
   /// simple pass null.
   final VoidCallback? onLongPress;
+
+  /// True while a tap on this remote row is fetching it, so the row can show
+  /// the fetch in flight rather than looking inert.
+  final bool fetching;
 
   @override
   Widget build(BuildContext context) {
@@ -482,6 +529,9 @@ class TrackTile extends StatelessWidget {
           ? d.isDone(track.videoId)
           : d.isDownloadedDeviceTrack(track.id),
     );
+    // Only a device track can play; a remote row's tap fetches it, and the row
+    // says so rather than offering a play that would fail.
+    final playable = track.origin == TrackOrigin.device;
 
     final compact = height <= 48.0;
     final artSize = (height - 12.0).clamp(24.0, 68.0);
@@ -587,6 +637,23 @@ class TrackTile extends StatelessWidget {
                       size: compact ? 13 : 15,
                       color: FathomColors.onSurface.withValues(alpha: 0.3),
                     ),
+                  ] else if (!playable) ...[
+                    const SizedBox(width: 10),
+                    if (fetching)
+                      SizedBox(
+                        width: compact ? 13 : 15,
+                        height: compact ? 13 : 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          color: accent,
+                        ),
+                      )
+                    else
+                      Icon(
+                        TablerIcons.cloudDownload,
+                        size: compact ? 13 : 15,
+                        color: FathomColors.onSurface.withValues(alpha: 0.35),
+                      ),
                   ],
                 ],
               ),

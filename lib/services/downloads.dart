@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new_min/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_min/return_code.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +31,7 @@ class FathomDownloads extends ChangeNotifier {
   final Map<String, int> _manifest = {};
   final Map<String, DownloadState> _states = {};
   final Map<String, double> _progress = {};
+  final Map<String, String> _failures = {};
   final Map<String, Completer<bool>> _waiters = {};
   final List<FathomTrack> _queue = [];
   int _active = 0;
@@ -76,6 +77,15 @@ class FathomDownloads extends ChangeNotifier {
   double progressOf(String? videoId) =>
       videoId == null ? 1.0 : (_progress[videoId] ?? 1.0);
 
+  /// Why the last attempt at this item failed, or null if it has not failed.
+  ///
+  /// The reason is deliberately not folded into the download's bool result: a
+  /// caller that only needs "did it work" should not have to carry a message,
+  /// and a caller that shows one reads it here. It is cleared when the item is
+  /// retried, so it can never be shown for an attempt still in flight.
+  String? failureOf(String? videoId) =>
+      videoId == null ? null : _failures[videoId];
+
   Future<bool> download(FathomTrack track) async {
     await _manifestReady.future;
 
@@ -105,6 +115,7 @@ class FathomDownloads extends ChangeNotifier {
     _active++;
     _states[videoId] = DownloadState.running;
     _progress[videoId] = 0.0;
+    _failures.remove(videoId);
     notifyListeners();
 
     File? tempAudio;
@@ -114,7 +125,13 @@ class FathomDownloads extends ChangeNotifier {
     try {
       final address = await source.audioUri(videoId);
       if (address == null) {
-        _fail(videoId, 'No audio address for this track');
+        // The source answers null instead of throwing, so its own explanation
+        // is the only account of what went wrong; without it the user sees
+        // "could not save" and has nothing to act on.
+        _fail(
+          videoId,
+          source.lastResolveError ?? 'No audio address for this track',
+        );
       } else {
         tempAudio = await _fetch(address, videoId);
         tempArt = await _downloadArtwork(track.artworkUrl, videoId);
@@ -219,6 +236,7 @@ class FathomDownloads extends ChangeNotifier {
 
   void _fail(String videoId, String reason) {
     debugPrint('Fathom download $videoId: $reason');
+    _failures[videoId] = reason;
     _states[videoId] = DownloadState.failed;
     _progress[videoId] = 0.0;
     notifyListeners();

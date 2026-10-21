@@ -7,8 +7,8 @@ enum TrackOrigin {
   /// A file on this device, found by the media scan.
   device,
 
-  /// A YouTube Music item. It may or may not have a downloaded copy; the
-  /// player resolves an address when playback starts.
+  /// A YouTube Music item with no file on this device yet. It carries no
+  /// address and cannot be played; it is a thing to download.
   ytMusic,
 }
 
@@ -47,8 +47,9 @@ class FathomTrack {
 
   /// Builds a track from a remote result.
   ///
-  /// `uri` is empty on purpose: remote addresses expire, so the player asks
-  /// the source for one at play time instead of storing a link that dies.
+  /// `uri` is empty on purpose: there is nothing on this device to point at
+  /// yet. A remote address is never stored, because it expires within hours —
+  /// it is resolved at download time and used once.
   factory FathomTrack.yt(YtItem item) => FathomTrack(
         // MediaStore ids are positive; a hash can be anything, and equality
         // checks the videoId for remote tracks anyway.

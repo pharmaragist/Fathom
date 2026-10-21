@@ -9,13 +9,12 @@ import '../models/tracks.dart';
 import '../components/art.dart';
 import '../services/audio.dart';
 import '../services/equalizer.dart';
-import '../services/yt_source.dart';
 import 'constants.dart';
 import 'library.dart';
 import 'settings.dart';
 
 class FathomPlayer extends ChangeNotifier {
-  FathomPlayer(this.settings, this.ytSource) {
+  FathomPlayer(this.settings) {
     _hardwareEqualizer = AndroidEqualizer();
     _audioPlayer = AudioPlayer(
       audioPipeline: AudioPipeline(androidAudioEffects: [_hardwareEqualizer]),
@@ -30,10 +29,6 @@ class FathomPlayer extends ChangeNotifier {
   }
 
   final FathomSettings settings;
-
-  /// Resolves remote tracks at play time. Remote addresses expire, so they are
-  /// never stored on a [FathomTrack].
-  final FathomYtSource ytSource;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   late final AndroidEqualizer _hardwareEqualizer;
@@ -150,42 +145,22 @@ class FathomPlayer extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Remote addresses, kept only for as long as the queue needs them.
-  final Map<String, Uri> _resolvedYt = {};
-
   /// Turns tracks into playable sources.
   ///
-  /// Remote tracks carry no address, so they are resolved here in one batch
-  /// and remembered per `videoId` for as long as the queue holds them. The
-  /// player's queue and just_audio's sources must stay index-aligned, so a
-  /// track whose address cannot be resolved is dropped from both.
+  /// Every playable track is a file on this device: a YouTube Music item is
+  /// downloaded before it can be played, at which point the library scan finds
+  /// it and it arrives here as a device track. A track that is still remote
+  /// has nothing to play, so it is dropped — the player's queue and just_audio's
+  /// sources must stay index-aligned.
   Future<(List<FathomTrack>, List<AudioSource>)> _resolveAll(
     List<FathomTrack> tracks,
   ) async {
-    final missing = tracks
-        .where((t) =>
-            t.origin == TrackOrigin.ytMusic &&
-            !_resolvedYt.containsKey(t.videoId))
-        .map((t) => t.videoId!)
-        .toSet()
-        .toList();
-    if (missing.isNotEmpty) {
-      _resolvedYt.addAll(await ytSource.audioUris(missing));
-    }
-
     final playable = <FathomTrack>[];
     final sources = <AudioSource>[];
     for (final track in tracks) {
-      if (track.origin == TrackOrigin.device) {
-        playable.add(track);
-        sources.add(AudioSource.uri(Uri.parse(track.uri), tag: track.id));
-        continue;
-      }
-
-      final uri = _resolvedYt[track.videoId];
-      if (uri == null) continue;
+      if (track.origin != TrackOrigin.device) continue;
       playable.add(track);
-      sources.add(AudioSource.uri(uri, tag: track.id));
+      sources.add(AudioSource.uri(Uri.parse(track.uri), tag: track.id));
     }
     return (playable, sources);
   }
@@ -194,20 +169,17 @@ class FathomPlayer extends ChangeNotifier {
     if (list.isEmpty || index < 0 || index >= list.length) return false;
 
     try {
-      // A new queue replaces the old one, so its addresses are no longer
-      // needed.
-      _resolvedYt.clear();
       final (playable, sources) = await _resolveAll(list);
 
       if (sources.isEmpty) {
-        _lastError = 'No playable audio';
+        _lastError = 'Nothing here is downloaded yet';
         notifyListeners();
         return false;
       }
 
       final newIndex = playable.indexWhere((t) => t == list[index]);
       if (newIndex < 0) {
-        _lastError = 'Could not resolve audio for this track';
+        _lastError = 'Download this track before playing it';
         notifyListeners();
         return false;
       }

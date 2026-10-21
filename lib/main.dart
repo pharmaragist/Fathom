@@ -181,10 +181,13 @@ Future<void> main() async {
   FathomColors.updateBrightness(FathomColors.resolve(settings.themeMode));
   SystemChrome.setSystemUIOverlayStyle(FathomColors.systemUiOverlayStyle());
 
-  final player = FathomPlayer(settings, FathomYtMusic());
+  final player = FathomPlayer(settings);
   final library = FathomLibrary()..load(grantIfMissing: false);
+  // The remote source exists for one purpose now: fetching bytes to keep. It
+  // is handed to the download service rather than the player, because nothing
+  // remote is ever played straight from YouTube.
   final downloads = FathomDownloads(
-    source: player.ytSource,
+    source: FathomYtMusic(),
     onFinished: () => library.load(grantIfMissing: false),
   );
   // Started before the first frame so the boot sync of

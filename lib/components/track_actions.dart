@@ -55,8 +55,18 @@ Future<void> showTrackActions(
 
 enum _TrackAction { play, playNext, addToQueue, download }
 
-Future<void> _runDownload(BuildContext context, FathomTrack track) async {
+Future<void> _runDownload(BuildContext context, FathomTrack track) =>
+    downloadTrack(context, track);
+
+/// Fetches one remote track and files it on the device, reporting the outcome.
+///
+/// Public because it is also what a bare tap on a remote result does: nothing
+/// remote is streamed any more, so "play this search result" and "keep this
+/// search result" are the same action, and the tile must not grow a second copy
+/// of the toast flow.
+Future<void> downloadTrack(BuildContext context, FathomTrack track) async {
   final toasts = context.read<FathomToasts>();
+  final downloads = context.read<FathomDownloads>();
   final title = track.title;
 
   // A pending message rather than a bar at the bottom: the rail and the mini
@@ -69,10 +79,14 @@ Future<void> _runDownload(BuildContext context, FathomTrack track) async {
     duration: const Duration(minutes: 5),
   );
 
-  final ok = await context.read<FathomDownloads>().download(track);
+  final ok = await downloads.download(track);
   toasts.dismiss(pending);
+  // A bare "could not save" leaves the user nothing to act on, and the reasons
+  // are not interchangeable: a captcha is worth retrying later, a video with no
+  // audio stream never will be. The service remembers why, so show it.
+  final reason = ok ? null : downloads.failureOf(track.videoId);
   toasts.show(
-    ok ? 'Saved $title' : 'Could not save $title',
+    ok ? 'Saved $title' : (reason ?? 'Could not save $title'),
     icon: ok ? TablerIcons.check : TablerIcons.alertTriangle,
     tone: ok ? ToastTone.success : ToastTone.failure,
   );
