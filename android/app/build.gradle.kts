@@ -36,6 +36,13 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+
+            // No `proguardFiles` call here on purpose. The Flutter Gradle
+            // plugin already enables minification for every release build and
+            // adds `proguard-android-optimize.txt`, its own
+            // `flutter_proguard_rules.pro`, and — by convention — this module's
+            // `android/app/proguard-rules.pro` whenever that file exists.
+            // Naming the files again here would add the default rules twice.
         }
     }
 }
