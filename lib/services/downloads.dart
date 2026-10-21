@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ffmpeg_kit_flutter_new_min/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_min/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_flutter_new_min/return_code.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,29 @@ class FathomDownloads extends ChangeNotifier {
   final VoidCallback onFinished;
 
   static const int maxConcurrent = 3;
+
+  /// How long the source may take to hand back a media address.
+  ///
+  /// Resolving is one network round trip to YouTube, so a small multiple of a
+  /// normal request is generous without letting a dead connection hold a
+  /// concurrency slot.
+  static const Duration resolveTimeout = Duration(seconds: 30);
+
+  /// How long the audio download may take, end to end.
+  ///
+  /// This bound exists for the same reason the resolve one does, and covers more
+  /// ground: `_fetch` sets `connectionTimeout`, but that only governs the TCP
+  /// connect, so a server that accepts the connection and then stalls mid-body
+  /// hangs forever, as does the per-chunk `await for`. A stalled transfer is
+  /// indistinguishable from a slow one until it is bounded, so the whole
+  /// transfer is bounded rather than each chunk.
+  static const Duration transferTimeout = Duration(minutes: 10);
+
+  /// How long the mp4 remux and tag may take.
+  ///
+  /// A stream copy of a few megabytes is work measured in milliseconds, so this
+  /// only ever fires on a malformed input that leaves FFmpeg reading forever.
+  static const Duration remuxTimeout = Duration(minutes: 2);
 
   final Map<String, int> _manifest = {};
   final Map<String, DownloadState> _states = {};
@@ -123,17 +147,39 @@ class FathomDownloads extends ChangeNotifier {
     File? taggedAudio;
     var ok = false;
     try {
-      final address = await source.audioUri(videoId);
+      // Resolving an address is a network round trip to YouTube that can stall
+      // without ever closing its socket, and `connectionTimeout` on the fetch
+      // below does not cover it. Without a bound here a stuck resolve holds one
+      // of the three concurrency slots forever and the row spins indefinitely,
+      // so the message the user is waiting on never arrives.
+      Uri? address;
+      try {
+        address = await source.audioUri(videoId).timeout(resolveTimeout);
+      } on TimeoutException {
+        _failures[videoId] = 'YouTube did not answer in time';
+      }
       if (address == null) {
         // The source answers null instead of throwing, so its own explanation
         // is the only account of what went wrong; without it the user sees
-        // "could not save" and has nothing to act on.
+        // "could not save" and has nothing to act on. The timeout above has
+        // already written the reason when the failure was a timeout.
         _fail(
           videoId,
-          source.lastResolveError ?? 'No audio address for this track',
+          _failures[videoId] ??
+              source.lastResolveError ??
+              'No audio address for this track',
         );
       } else {
-        tempAudio = await _fetch(address, videoId);
+        // `_fetch` sets `connectionTimeout`, but that only governs the TCP
+        // connect, so a server that accepts the connection and then stalls
+        // mid-body hangs forever. A stalled transfer is indistinguishable from
+        // a slow one until it is bounded.
+        tempAudio = await _fetch(address, videoId).timeout(
+          transferTimeout,
+          onTimeout: () => throw const SocketException(
+            'Audio transfer stalled and was given up on',
+          ),
+        );
         tempArt = await _downloadArtwork(track.artworkUrl, videoId);
 
         taggedAudio = await _remuxAndTag(
@@ -201,9 +247,32 @@ class FathomDownloads extends ChangeNotifier {
     cmd.write('"$outputPath"');
 
     final session = await FFmpegKit.execute(cmd.toString());
-    final returnCode = await session.getReturnCode();
+    return _awaitRemux(session, outputFile, audioFile);
+  }
 
-    if (ReturnCode.isSuccess(returnCode) && outputFile.existsSync()) {
+  /// Waits for a remux, bounded by [remuxTimeout].
+  ///
+  /// The remux is a stream copy, so it is fast, but this is the one step in the
+  /// chain with no socket underneath it to time out: a malformed input can leave
+  /// FFmpeg reading forever, and its session would hold a concurrency slot for
+  /// the rest of the run. On timeout the session is cancelled rather than
+  /// abandoned, so the native process goes away too, and the audio already on
+  /// disk is returned instead — the tag is a nicety, not the download, so losing
+  /// it must not lose the file.
+  Future<File> _awaitRemux(
+    FFmpegSession session,
+    File outputFile,
+    File audioFile,
+  ) async {
+    final returnCode =
+        await session.getReturnCode().timeout(remuxTimeout, onTimeout: () {
+      unawaited(FFmpegKit.cancel(session.getSessionId()));
+      return null;
+    });
+
+    if (returnCode != null &&
+        ReturnCode.isSuccess(returnCode) &&
+        outputFile.existsSync()) {
       return outputFile;
     }
     return audioFile;
