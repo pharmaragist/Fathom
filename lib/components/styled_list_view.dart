@@ -465,9 +465,16 @@ class _FastScrollbarState extends State<_FastScrollbar> {
                       final max = pos.maxScrollExtent;
                       final viewport = pos.viewportDimension;
                       final trackHeight = c.maxHeight;
-                      final thumbHeight =
-                          (trackHeight * viewport / (viewport + max))
-                              .clamp(56.0, trackHeight);
+                      // The minimum thumb is a legibility floor, so it has to
+                      // yield to the track: a viewport shorter than the floor
+                      // (a small window, a keyboard, split screen) would
+                      // otherwise clamp with its lower bound above its upper
+                      // one, which throws and takes the whole list down. On a
+                      // track that short, a smaller thumb is the honest answer.
+                      final thumbHeight = (trackHeight *
+                              viewport /
+                              (viewport + max))
+                          .clamp(trackHeight < 56.0 ? 0.0 : 56.0, trackHeight);
                       final range = trackHeight - thumbHeight;
                       final fraction = (pos.pixels / max).clamp(0.0, 1.0);
                       final thumbTop = fraction * range;

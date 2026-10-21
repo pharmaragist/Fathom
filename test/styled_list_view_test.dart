@@ -82,4 +82,19 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('survives a viewport shorter than the scrollbar thumb floor',
+      (tester) async {
+    // The thumb has a legibility floor of 56px, and clamping to it on a track
+    // shorter than that puts the lower bound above the upper one, which throws
+    // and takes the whole list down. Reachable through a small window, an open
+    // keyboard, or split screen.
+    await tester.pumpWidget(
+      wrap(SizedBox(height: 40, child: list())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('a'), findsOneWidget);
+  });
 }
