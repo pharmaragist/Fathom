@@ -12,6 +12,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // NewPipe Extractor targets Java 8+ APIs (java.time, java.util.stream)
+        // that the platform only has from API 26 up, and Fathom supports older
+        // devices. Desugaring supplies them; the extractor's Gradle wiring
+        // expects both this flag and the desugar_jdk_libs dependency.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -43,4 +48,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Required by NewPipe Extractor's use of java.time and java.util.stream;
+    // see isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

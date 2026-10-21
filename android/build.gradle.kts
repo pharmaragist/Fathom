@@ -2,6 +2,10 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // NewPipe Extractor is published to JitPack, not Maven Central. Added
+        // here rather than in settings.gradle.kts because this is the block that
+        // every module (including the plugin) resolves against.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
