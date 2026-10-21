@@ -106,3 +106,10 @@ A short message the shell shows below the header: something just happened, said
 once, then gone. It is not a place to put a control and not a permanent notice —
 anything that has to survive is held by the service that owns it, and the toast
 is only the announcement.
+
+It says the thing in two parts: a line that names what happened, and a second
+that explains it when there is an explanation worth reading. The two are separate
+because a failure is an outcome plus a cause, and a single line gets the cause
+cut off first. A long-running message is the one kind that may carry its own way
+out, because the user should not have to wait on something they have stopped
+caring about.

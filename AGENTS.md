@@ -194,6 +194,11 @@ Fetches a remote track's audio and files it on the device. Built in `main` rathe
 * **States**: `download(track)` returns false without side effects when there is nothing to do (no remote id, already in the manifest). Otherwise it moves `idle` -> `pending`/`running` -> `done` or `failed`, and `stateOf` / `progressOf` are the read surface a menu needs. A failed track can be retried; a running or pending one cannot be started twice.
 * **The failure reason is a separate read from the bool result.** `failureOf(videoId)` returns why the last attempt failed, or null, and is cleared when the item is retried so it can never describe an attempt still in flight. It is deliberately not folded into `download`'s return value: a caller that only needs "did it work" should not have to carry a message, and the one that shows a message reads it here. This matters because the source resolves an address by returning null rather than throwing, so the reason is recorded in exactly one place and a caller that drops it turns every distinct cause — a captcha, a throttled request, a video with no audio stream — into the same "could not save".
 * **Rescan**: the manifest is persisted before `onFinished` fires, so the library scan that follows sees a file whose row id is already recorded, and the badge is correct on the first rebuild.
+* **Every step is bounded, and each bound is matched to what it actually covers.** A download has no natural end if a socket stalls halfway, so an unbounded chain leaves a row spinning forever and the message the user is waiting on never arrives. The three:
+  * `resolveTimeout` (30s) covers the source handing back a media address. `_fetch` sets `connectionTimeout`, but that only governs the TCP connect, and resolving is a separate round trip it does not cover.
+  * `transferTimeout` (10min) covers the whole audio transfer, not each chunk. A server can accept the connection and then stall mid-body, which hangs the per-chunk `await for`; a stalled transfer is indistinguishable from a slow one until it is bounded.
+  * `remuxTimeout` (2min) covers the mp4 remux and tag — the one step with no socket underneath it, where a malformed input would otherwise leave FFmpeg reading for the rest of the run. On timeout the session is **cancelled** rather than abandoned, so the native process goes away too, and the untagged audio is returned instead: the tag is a nicety, and losing it must not lose the file.
+  * `saveAudio` is deliberately **not** bounded. Below API 29 the native side holds the MethodChannel call while it asks for storage permission, so a timeout there would abort a legitimate user-facing dialog.
 
 ---
 
@@ -224,7 +229,7 @@ Fetches a remote track's audio and files it on the device. Built in `main` rathe
 
 1. **`ShellChrome`** (`lib/components/shell_chrome.dart`): the fixed chrome every page wears — the `AmbientBackdrop` behind and the `PageHeader` above. It is built once, *outside* the page switch, so a page change never cross-fades or duplicates the backdrop or the header. It owns the canonical header padding (`20` gutters, `viewPadding.top + 8` top, `14` below); `PageHeader` carries no padding of its own, and a page that added its own would drift from its neighbours. The header's title and trailing controls are derived from `ShellPage`, so they change in place while the body alone changes.
 2. **`PageView`**: both destinations mounted, side by side, moved by rail tap or horizontal swipe. See *Page Swipe* below.
-3. **`FathomToastLayer`** (`lib/components/toast_layer.dart`): the message surface, wrapped in an `IgnorePointer` because a toast is information and must never take a tap meant for the list.
+3. **`FathomToastLayer`** (`lib/components/toast_layer.dart`): the message surface. It decides its own pointer behaviour rather than being wrapped in an `IgnorePointer` here: a toast is information and normally must not take a tap meant for the list, but a long-running card carries a close control that has to be reachable. Keeping that decision in one place is what stops the shell and the layer from disagreeing about it.
 4. **Dismiss layer**: a `Positioned.fill` that sits *below* `BottomPanel`, gated on the search field being focused. Tapping outside closes the keyboard. It must stay under the panel so the panel's own controls stay live, and it must stay a separate layer from the page so the text-selection toolbar — which lives in the root overlay above routes — is never swallowed by it.
 5. **`BottomPanel`** (`lib/panels/bottom_panel.dart`): combines `FloatingIslandPlayer` (compact mini-player with horizontal swipe-to-skip gestures) and `FloatingNavRail` (`lib/components/nav_rail.dart`). The rail carries one search field, bound to `FathomSearch.query`, and is the single way between destinations.
 
@@ -269,7 +274,21 @@ The blur and flat modes of `GlassContainer` must stay **structurally different s
 
 ### Message Surface (`lib/common/toasts.dart`, `lib/components/toast_layer.dart`)
 
-Toasts are the app's only transient message surface; do **not** use `SnackBar`. The bottom edge belongs to the mini player and the nav rail, so a message there would cover the controls it is usually reporting about. `FathomToasts` is a small in-memory queue provided in `main` (above the shell, so a message survives a page switch); `FathomToastLayer` renders it as glass cards directly below the header, newest nearest the header. Each toast has an `icon`, a `ToastTone` (`neutral` / `success` / `failure`) driving its accent, and an auto-dismiss `duration`. A long-running message (a download in flight) is shown with a long duration and dismissed explicitly when its outcome is known. Read the notifier from `context` *before* an await — the page that raised the message may be gone by the time the work finishes.
+Toasts are the app's only transient message surface; do **not** use `SnackBar`. The bottom edge belongs to the mini player and the nav rail, so a message there would cover the controls it is usually reporting about. `FathomToasts` is a small in-memory queue provided in `main` (above the shell, so a message survives a page switch); `FathomToastLayer` renders it as glass cards directly below the header, newest nearest the header.
+
+A toast carries **two lines of text, not one**. `title` is what happened and must survive; `detail` is the explanation, when there is one worth reading. The split exists because the two messages this surface carries are shaped differently: a confirmation is one short clause ("Saved"), while a failure is an outcome plus a cause ("Could not save" / "YouTube asked for a captcha"). Run together into a single clamped line, the half that gets truncated first is the half the user needed, so **never pass a cause through `title`** — a failure the user cannot act on is a failure reported twice.
+
+The rest of the contract:
+
+* `icon` and a `ToastTone` (`neutral` / `success` / `failure`) drive the glyph and accent; the tone supplies a default glyph when the caller names none, so an outcome is recognizable by shape before its words are read.
+* `duration` is the auto-dismiss, defaulting to three seconds. A long-running message (a download in flight) is shown with a long duration and dismissed explicitly when its outcome is known.
+* `dismissible` decides whether the card offers a close control. Off for an ordinary message, which the user has no reason to dismiss early and which would only gain a target to miss; **on for anything long-running**, because the alternative is a message the user cannot get rid of if the work outlives its usefulness. The layer lets taps through only when some visible card is dismissible, and only within the stack — an ordinary toast never swallows a tap meant for the page.
+* Timers are tracked per id and cancelled by `dismiss`, `clear` and `dispose`. Do not reach for a loose `Future.delayed` here: clearing the queue would leave a callback scheduled against a message that is already gone.
+* `maxVisible` caps the stack at three, dropping the oldest. A stack of glass cards stops being readable well before it stops fitting, and the newest is the one worth keeping.
+
+The layer keeps its own `_Entry` list rather than reading the queue directly, because the notifier drops a toast the moment it is dismissed and a card that vanished between frames would never play its exit. A card enters by dropping in from the header and exits along the same path reversed; motion respects `MediaQuery.disableAnimationsOf`, which drops the travel and keeps a cross-fade.
+
+Read the notifier from `context` *before* an await — the page that raised the message may be gone by the time the work finishes.
 
 ### Search Surfaces
 
