@@ -356,7 +356,8 @@ class _LibraryPageState extends State<LibraryPage> {
       navigator.maybePop();
       final reason = player.lastError;
       toasts.show(
-        reason.isEmpty ? 'Could not play this track' : reason,
+        'Could not play this track',
+        detail: reason.isEmpty ? null : reason,
         icon: TablerIcons.alertTriangle,
         tone: ToastTone.failure,
       );

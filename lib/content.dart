@@ -209,11 +209,11 @@ class _RootShellState extends State<RootShell> {
           ),
           // Messages live directly under the header and above every page, so a
           // download report never lands on the mini player or the rail that it
-          // is usually about. `IgnorePointer` because a toast is information:
-          // it must not take a tap meant for the list.
-          const Positioned.fill(
-            child: IgnorePointer(child: FathomToastLayer()),
-          ),
+          // is usually about. The layer decides its own pointer behaviour: a
+          // toast is information and must not take a tap meant for the list,
+          // but a long-running card carries a close control that has to be
+          // reachable, so the decision cannot be made here.
+          const Positioned.fill(child: FathomToastLayer()),
           // Full-screen dismiss layer for the search rail. It sits between
           // the page and the panel: the panel paints and hit-tests above it,
           // so the rail, the mini player and the field's own context menu are
