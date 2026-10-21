@@ -4,29 +4,45 @@ The words this project uses, with one meaning each. No implementation detail liv
 
 ## Library
 
-The set of tracks stored on this device, however they arrived. A stream that has
-been downloaded is a Library track and is found like any other file.
+The set of tracks stored on this device, however they arrived. A remote result
+that has been downloaded is a Library track and is found like any other file.
 
 ## Origin
 
-Whether a track's audio lives on the device or on YouTube Music. It decides how
-artwork is read and how the player gets an address when playback starts. Every
-track has exactly one origin.
+Whether a track's audio lives on the device or is still only a remote result. A
+remote item is not playable: it becomes music by being downloaded, at which point
+it is a Library track with a device origin. Every track has exactly one origin.
 
 ## Queue
 
-The single ordered list of what plays next. It accepts tracks of either origin.
-There is one now-playing at a time regardless of origin.
+The single ordered list of what plays next. It holds Library tracks only — a
+remote result cannot be queued, because it has no audio to play yet. There is one
+now-playing at a time.
 
 ## Stream
 
-Playing a track straight from a remote address, leaving no copy on the device.
+Not a Fathom concept. Fathom does not play from a remote address and keeps no
+such path: a remote result is either downloaded or ignored. The word is kept here
+only to say that anything reaching for it is reaching for something the app
+deliberately does not have.
+
+*(Until recently, playing a remote address straight through, leaving no copy on
+the device. It was removed on purpose — a live remote address expires, is
+throttled, and staying valid is what makes remote extraction fragile. Being a
+fetcher and downloader is what lets Fathom depend on a maintained extractor
+instead of owning that fight.)*
 
 ## Download
 
-Writing a track's audio to the device as an ordinary media file. Once written it
-is a Library track and is found by the Library like any other file — Fathom does
-not keep it in a private set.
+Writing a remote result's audio to the device as an ordinary media file. Once
+written it is a Library track and is found by the Library like any other file —
+Fathom does not keep it in a private set.
+
+## Fetch
+
+Getting a remote result's audio in order to Download it. A Fetch is the only
+thing a remote result is for, and the only remote operation Fathom performs.
+Fetching a result is what tapping it does.
 
 ## Manifest
 
@@ -37,19 +53,25 @@ a source of truth: delete it and only the badges go, never the files.
 
 ## Track
 
-One playable piece of music, whatever its origin. The name for the thing the
-Queue holds and the player plays.
+One piece of music, whatever its origin. The name for the thing the Queue holds
+and the player plays. A device track is a Track; a remote result is not yet one.
+
+## Remote result
+
+A YouTube Music item found by a Search, before it has been downloaded. It carries
+no audio and can be neither queued nor played — it is a thing to Fetch. This is
+the distinction the word Origin names.
 
 ## Query
 
 The search text currently applied. There is one field and one query; a search
 matches the Library first and then remote results, in that order.
-
 ## Search
 
-Looking for tracks, in both origins at once. Local matches come first and remote
-results follow them. Searching is not browsing: it has no categories, no
-albums, no playlists.
+Looking for music, in both origins at once. Local matches come first and remote
+results follow them. A local match can be played; a remote result can only be
+fetched, which is what tapping one does. Searching is not browsing: it has no
+categories, no albums, no playlists.
 
 ## Preset
 
