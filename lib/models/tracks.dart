@@ -22,6 +22,7 @@ class FathomTrack {
     required this.origin,
     this.videoId,
     this.thumbUri,
+    this.thumbUris = const [],
     this.durationMs,
     this.dateAdded,
   });
@@ -60,6 +61,7 @@ class FathomTrack {
         origin: TrackOrigin.ytMusic,
         videoId: item.videoId,
         thumbUri: item.thumbUri,
+        thumbUris: item.thumbUris,
         durationMs: item.duration == null ? null : item.duration! * 1000,
       );
 
@@ -71,10 +73,31 @@ class FathomTrack {
 
   /// Set for [TrackOrigin.ytMusic] tracks; identifies the item everywhere.
   final String? videoId;
-  String? get artworkUrl => thumbUri?.toString();
+
+  /// The address to fetch this track's cover art from during a download, or
+  /// null when the item carries no artwork.
+  ///
+  /// Deliberately the largest of [thumbUris] rather than [thumbUri]: a download
+  /// writes the image into the file's own tag, where it outlives this app and
+  /// is what every other player will show. [thumbUri] was chosen for a list row
+  /// and is far too small for that — and with `dataSave` on it is deliberately
+  /// tiny, so reusing it would bake the smallest possible image into the file
+  /// permanently, which no later change could undo.
+  String? get artworkUrl {
+    final chosen = thumbUris.isEmpty
+        ? thumbUri?.toString()
+        : pickThumbnail(thumbUris, maxWidth: kThumbArtMaxWidth);
+    return chosen;
+  }
 
   /// Thumbnail for remote tracks. Device tracks read art from the media store.
   final Uri? thumbUri;
+
+  /// Every thumbnail size the item carries.
+  ///
+  /// Kept so a download can pick again at its own cap; see [artworkUrl].
+  final List<String> thumbUris;
+
   final int? durationMs;
   final int? dateAdded;
 

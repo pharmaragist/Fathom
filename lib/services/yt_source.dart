@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:newpipeextractor_dart/newpipeextractor_dart.dart';
 
@@ -12,10 +13,29 @@ import '../models/ytmusic.dart';
 /// this is only about how much the row is allowed to download.
 enum YtQuality { low, high }
 
+/// One item's audio address and the desktop-quality cover art for its file.
+///
+/// The two arrive together because the extractor returns them together: a
+/// resolve is already a video-metadata request, and the artwork rides along on
+/// it for free. Splitting them into two calls would double the round trips for
+/// no gain.
+@immutable
+class ResolvedAudio {
+  const ResolvedAudio({required this.audio, this.artwork});
+
+  /// The media address to download from. It expires within hours, so it is
+  /// used immediately and never stored.
+  final Uri audio;
+
+  /// The largest thumbnail the item carries, for embedding in the downloaded
+  /// file's own tag. Null when the item has none.
+  final Uri? artwork;
+}
+
 /// The remote music source: a fetcher, not a streamer.
 ///
 /// Fathom keeps nothing remote playable. A search finds items, and an item
-/// becomes music only once [audioUri] has been used to fetch its bytes and
+/// becomes music only once [resolve] has been used to fetch its bytes and
 /// `FathomDownloads` has filed them on the device. There is deliberately no
 /// "give me a URL I can play right now" method: a live stream address is the
 /// fragile half of every YouTube client — it expires, it is throttled, and it
@@ -35,10 +55,10 @@ abstract class FathomYtSource {
   /// [lastResolveError] instead.
   String? get error;
 
-  /// Why the most recent [audioUri] call returned null, or null when it
+  /// Why the most recent [resolve] call returned null, or null when it
   /// succeeded.
   ///
-  /// [audioUri] answers with null rather than throwing, because a fetch that
+  /// [resolve] answers with null rather than throwing, because a fetch that
   /// cannot be resolved is an ordinary outcome, not an exceptional one: the
   /// caller reports it as a failed download. That makes this the only place the
   /// reason survives, and a caller that drops it leaves the user with "Could
@@ -58,12 +78,20 @@ abstract class FathomYtSource {
     required YtQuality quality,
   });
 
-  /// The direct media address for one item, resolved at fetch time.
+  /// Resolves one item's direct media address, together with the best cover
+  /// art available for the file it will become.
   ///
-  /// The caller downloads from it immediately. It is never stored on a
+  /// The caller downloads from the address immediately; it is never stored on a
   /// [FathomTrack], because it expires within hours. A null return means the
-  /// address could not be resolved; [lastResolveError] says why.
-  Future<Uri?> audioUri(String videoId);
+  /// address could not be resolved, which is an ordinary outcome rather than an
+  /// exceptional one — the caller reports it as a failed download — and
+  /// [lastResolveError] says why, since that is then the only place the reason
+  /// survives.
+  ///
+  /// The artwork is advisory and may be null, but it comes from the same
+  /// extractor call, so a caller that drops it discards a free high-resolution
+  /// image and leaves itself only the row-sized URL the search happened to keep.
+  Future<ResolvedAudio?> resolve(String videoId);
 }
 
 class FathomYtMusic implements FathomYtSource {
@@ -128,13 +156,18 @@ class FathomYtMusic implements FathomYtSource {
 
   /// The thumbnail to show for one search item.
   ///
-  /// The extractor lists every size the item carries, largest last, so a
-  /// thrifty search takes the first entry and a full one the last.
+  /// Chosen by the width the URL serves, never by list position: the
+  /// extractor's list is unsorted, so "first" and "last" are arbitrary. A
+  /// thrifty search asks for the small end and a full one for a row-sized
+  /// image — neither wants YouTube's 1280px original, because a list row
+  /// decodes it and throws almost all of it away.
   Uri? _thumbFor(StreamInfoItem item, YtQuality quality) {
-    if (item.thumbnails.isEmpty) return null;
-    final chosen =
-        quality == YtQuality.low ? item.thumbnails.first : item.thumbnails.last;
-    return Uri.tryParse(chosen);
+    final chosen = pickThumbnail(
+      item.thumbnails,
+      maxWidth:
+          quality == YtQuality.low ? kThumbThriftyMaxWidth : kThumbRowMaxWidth,
+    );
+    return chosen == null ? null : Uri.tryParse(chosen);
   }
 
   @override
@@ -169,12 +202,25 @@ class FathomYtMusic implements FathomYtSource {
         // The extractor reports length in whole seconds already.
         duration: item.duration,
         thumbUri: _thumbFor(item, quality),
+        thumbUris: item.thumbnails,
       );
     }
   }
 
+  /// Resolves one item's audio address and its best cover art together.
+  ///
+  /// One round trip, not two: `VideoExtractor.getStream` already returns the
+  /// video's own metadata — including every thumbnail size — alongside the
+  /// streams, so reading both out of it costs nothing extra. That is what makes
+  /// a download's artwork free as well as correct: the alternative was reusing
+  /// the search-time URL, which is chosen for a list row and, with `dataSave`
+  /// on, is the smallest image the item has.
+  ///
+  /// Null means the address could not be resolved, which is an ordinary
+  /// outcome; [lastResolveError] says why. Artwork is advisory: an item whose
+  /// thumbnails are missing still resolves, with a null [ResolvedAudio.artwork].
   @override
-  Future<Uri?> audioUri(String videoId) async {
+  Future<ResolvedAudio?> resolve(String videoId) async {
     if (videoId.isEmpty) {
       _resolveError = 'This result has no video id';
       return null;
@@ -206,8 +252,23 @@ class FathomYtMusic implements FathomYtSource {
             : 'YouTube returned an audio stream with no address';
         return null;
       }
+
+      final audio = Uri.tryParse(url);
+      if (audio == null) {
+        _resolveError =
+            'YouTube returned an audio address Fathom could not read';
+        return null;
+      }
+
       _resolveError = null;
-      return Uri.tryParse(url);
+      final art = pickThumbnail(
+        video.videoInfo.thumbnails,
+        maxWidth: kThumbArtMaxWidth,
+      );
+      return ResolvedAudio(
+        audio: audio,
+        artwork: art == null ? null : Uri.tryParse(art),
+      );
     } on PlatformException catch (e) {
       // A reCAPTCHA challenge is the one failure the package names, and it is
       // the one the user can actually do something about, so it says so

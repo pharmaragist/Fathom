@@ -152,13 +152,17 @@ class FathomDownloads extends ChangeNotifier {
       // below does not cover it. Without a bound here a stuck resolve holds one
       // of the three concurrency slots forever and the row spins indefinitely,
       // so the message the user is waiting on never arrives.
-      Uri? address;
+      //
+      // `resolve` returns the item's own best cover art from the same call: the
+      // extractor fetches the video's metadata anyway, so the image is free
+      // here and far better than the row-sized URL the search kept.
+      ResolvedAudio? resolved;
       try {
-        address = await source.audioUri(videoId).timeout(resolveTimeout);
+        resolved = await source.resolve(videoId).timeout(resolveTimeout);
       } on TimeoutException {
         _failures[videoId] = 'YouTube did not answer in time';
       }
-      if (address == null) {
+      if (resolved == null) {
         // The source answers null instead of throwing, so its own explanation
         // is the only account of what went wrong; without it the user sees
         // "could not save" and has nothing to act on. The timeout above has
@@ -170,17 +174,32 @@ class FathomDownloads extends ChangeNotifier {
               'No audio address for this track',
         );
       } else {
+        // The artwork is an independent request against a different host, so it
+        // is started alongside the audio rather than after it. Awaiting it in
+        // sequence made every download pay audio **plus** artwork; together the
+        // download costs whichever is slower, and on a slow connection that is
+        // a whole round trip saved per track.
+        final artwork = _downloadArtwork(
+          resolved.artwork?.toString() ?? track.artworkUrl,
+          videoId,
+        );
+
         // `_fetch` sets `connectionTimeout`, but that only governs the TCP
         // connect, so a server that accepts the connection and then stalls
         // mid-body hangs forever. A stalled transfer is indistinguishable from
         // a slow one until it is bounded.
-        tempAudio = await _fetch(address, videoId).timeout(
-          transferTimeout,
-          onTimeout: () => throw const SocketException(
-            'Audio transfer stalled and was given up on',
-          ),
-        );
-        tempArt = await _downloadArtwork(track.artworkUrl, videoId);
+        try {
+          tempAudio = await _fetch(resolved.audio, videoId).timeout(
+            transferTimeout,
+            onTimeout: () => throw const SocketException(
+              'Audio transfer stalled and was given up on',
+            ),
+          );
+        } finally {
+          // Whatever happened to the audio, the artwork future has to be
+          // awaited or its failure would surface as an unhandled error.
+          tempArt = await artwork;
+        }
 
         taggedAudio = await _remuxAndTag(
           audioFile: tempAudio,
