@@ -566,122 +566,124 @@ class TrackTile extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          InkWell(
-            onTap: () {
-              heroFromPanel?.value = compact;
-              onTap();
-            },
-            onLongPress: onLongPress,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: compact ? 16 : 20,
-                right: compact ? 12 : 16,
-              ),
-              child: Row(
-                children: [
-                  if (!compact) ...[
-                    if (heroFromPanel == null)
-                      TrackArt(
-                        library: library,
-                        track: track,
-                        size: artSize,
-                        radius: artSize > 42 ? 18 : 6,
-                      )
-                    else
-                      ValueListenableBuilder<bool>(
-                        valueListenable: heroFromPanel!,
-                        builder: (context, fromPanel, child) =>
-                            HeroMode(enabled: !fromPanel, child: child!),
-                        child: Hero(
-                          tag: 'fathom-art-${track.id}',
-                          child: TrackArt(
-                            library: library,
-                            track: track,
-                            size: artSize,
-                            radius: artSize > 42 ? 18 : 6,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InkWell(
+              onTap: () {
+                heroFromPanel?.value = compact;
+                onTap();
+              },
+              onLongPress: onLongPress,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: compact ? 16 : 20,
+                  right: compact ? 12 : 16,
+                ),
+                child: Row(
+                  children: [
+                    if (!compact) ...[
+                      if (heroFromPanel == null)
+                        TrackArt(
+                          library: library,
+                          track: track,
+                          size: artSize,
+                          radius: artSize > 42 ? 18 : 6,
+                        )
+                      else
+                        ValueListenableBuilder<bool>(
+                          valueListenable: heroFromPanel!,
+                          builder: (context, fromPanel, child) =>
+                              HeroMode(enabled: !fromPanel, child: child!),
+                          child: Hero(
+                            tag: 'fathom-art-${track.id}',
+                            child: TrackArt(
+                              library: library,
+                              track: track,
+                              size: artSize,
+                              radius: artSize > 42 ? 18 : 6,
+                            ),
                           ),
                         ),
-                      ),
-                    const SizedBox(width: 14),
-                  ],
-                  Expanded(
-                    child: compact
-                        ? Row(
-                            children: [
-                              Expanded(child: title),
-                              const SizedBox(width: 14),
-                              ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 120),
-                                child: artist,
-                              ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              title,
-                              const SizedBox(height: 4),
-                              artist,
-                            ],
-                          ),
-                  ),
-                  if (downloaded) ...[
-                    const SizedBox(width: 10),
-                    Icon(
-                      TablerIcons.cloudCheck,
-                      size: compact ? 13 : 15,
-                      color: FathomColors.onSurface.withValues(alpha: 0.3),
+                      const SizedBox(width: 14),
+                    ],
+                    Expanded(
+                      child: compact
+                          ? Row(
+                              children: [
+                                Expanded(child: title),
+                                const SizedBox(width: 14),
+                                ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 120),
+                                  child: artist,
+                                ),
+                              ],
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                title,
+                                const SizedBox(height: 4),
+                                artist,
+                              ],
+                            ),
                     ),
-                  ] else if (!playable) ...[
-                    const SizedBox(width: 10),
-                    if (fetching)
-                      SizedBox(
-                        width: compact ? 13 : 15,
-                        height: compact ? 13 : 15,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.6,
-                          color: accent,
-                        ),
-                      )
-                    else
+                    if (downloaded) ...[
+                      const SizedBox(width: 10),
                       Icon(
-                        TablerIcons.cloudDownload,
+                        TablerIcons.cloudCheck,
                         size: compact ? 13 : 15,
-                        color: FathomColors.onSurface.withValues(alpha: 0.35),
+                        color: FathomColors.onSurface.withValues(alpha: 0.3),
                       ),
+                    ] else if (!playable) ...[
+                      const SizedBox(width: 10),
+                      if (fetching)
+                        SizedBox(
+                          width: compact ? 13 : 15,
+                          height: compact ? 13 : 15,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.6,
+                            color: accent,
+                          ),
+                        )
+                      else
+                        Icon(
+                          TablerIcons.cloudDownload,
+                          size: compact ? 13 : 15,
+                          color: FathomColors.onSurface.withValues(alpha: 0.35),
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          if (isPlaying)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              child: IgnorePointer(
-                child: Center(
-                  child: SizedBox(
-                    height: indicatorHeight,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: accent,
-                        borderRadius: BorderRadius.circular(2),
+            if (isPlaying)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                child: IgnorePointer(
+                  child: Center(
+                    child: SizedBox(
+                      height: indicatorHeight,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: accent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: const SizedBox.expand(),
                       ),
-                      child: const SizedBox.expand(),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -131,16 +131,23 @@ class _StyledListViewState<T extends Object> extends State<StyledListView<T>>
         topInset: widget.topInset,
         bottomInset: widget.bottomInset - 20,
         labelFor: widget.labelFor,
-        child: CustomScrollView(
-          controller: _scroll,
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            // Each section owns its own extent animation; they share duration
-            // and curve, so they resize as one list rather than as parts.
-            for (var s = 0; s < sections.length; s++)
-              ..._sectionSlivers(sections[s],
-                  isFirst: s == 0, isLast: s == sections.length - 1),
-          ],
+        child: _EdgeFade(
+          // The fade has to sit away from the list's own insets, or the first
+          // and last rows would start fading while they are still the things
+          // the eye is on.
+          firstFade: widget.topInset + 28,
+          lastFade: widget.bottomInset + 28,
+          child: CustomScrollView(
+            controller: _scroll,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              // Each section owns its own extent animation; they share duration
+              // and curve, so they resize as one list rather than as parts.
+              for (var s = 0; s < sections.length; s++)
+                ..._sectionSlivers(sections[s],
+                    isFirst: s == 0, isLast: s == sections.length - 1),
+            ],
+          ),
         ),
       ),
     );
@@ -209,6 +216,85 @@ class _StyledListViewState<T extends Object> extends State<StyledListView<T>>
               addSemanticIndexes: false,
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Softens the two ends of a scrolling list so rows do not meet a hard edge.
+///
+/// The list runs the full height of the shell layer, straight under the header
+/// at the top and behind the mini player and rail at the bottom. Without this a
+/// row scrolled to either end is sliced off flush by whatever it passes behind,
+/// which reads as a blunt edge rather than as content that has scrolled away.
+/// Fading it out says the same thing without the cut.
+///
+/// This is a [ShaderMask] over a linear alpha gradient rather than a [ClipRRect].
+/// Both cost a compositing layer, so the choice is not about avoiding one
+/// wholesale — it is about what the layer has to compute and what it cuts. A
+/// rounded clip has to anti-alias a curved edge and cuts pixels hard on that
+/// curve, so a row crossing it is severed along a shape it has nothing to do
+/// with, and the translucent rows behind it are left fighting the boundary. The
+/// shader instead writes a per-pixel alpha ramp: no curved geometry, and the
+/// transition is a gradient, so a row is faded rather than severed and there is
+/// no boundary for a translucent tile to disagree with.
+///
+/// The masked region is deliberately a *plain* rectangle covering only the
+/// scrolling rows. The fast scrollbar and its letter label live outside this
+/// widget, in the [Stack] above, so neither is faded and the label can still
+/// overhang the list as it was designed to.
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade({
+    required this.child,
+    required this.firstFade,
+    required this.lastFade,
+  });
+
+  final Widget child;
+
+  /// Height of the top falloff, measured from the top of the layer.
+  final double firstFade;
+
+  /// Height of the bottom falloff, measured from the bottom of the layer.
+  final double lastFade;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        // A short viewport (a keyboard, a very small window) can have the two
+        // ramps meet, which would leave the middle of the list invisible. The
+        // mask then degenerates to fully opaque and the list is simply not
+        // faded — the honest failure, since the alternative is hiding content.
+        if (!height.isFinite || height <= 0 || firstFade + lastFade >= height) {
+          return child;
+        }
+
+        return ShaderMask(
+          // `srcIn` keeps the child's own alpha and multiplies it by the
+          // shader's, so a tile that is already translucent (an entrance
+          // animation mid-flight) fades from where it is rather than being
+          // forced opaque first.
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: const [
+              Color(0x00000000),
+              Color(0xFF000000),
+              Color(0xFF000000),
+              Color(0x00000000),
+            ],
+            stops: [
+              0,
+              firstFade / height,
+              1 - (lastFade / height),
+              1,
+            ],
+          ).createShader(bounds),
+          child: child,
         );
       },
     );
