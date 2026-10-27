@@ -1,7 +1,7 @@
 name: fathom
 description: "Fathom — a deep, minimalist, ethereal local music player by pharmaracist."
 publish_to: "none"
-version: 1.0.0
+version: 1.1.0+2043
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -19,21 +19,17 @@ dependencies:
   shared_preferences_android: ">=2.4.28 <2.5.0"
   # The Material color utilities that generate Fathom's tonal palettes.
   material_color_utilities: ^0.13.0
-  palette_generator_plus: ^1.0.0
   volume_controller: ^3.7.1
   # The remote music source (see lib/services/yt_source.dart). Wraps NewPipe
-  # Extractor — native Kotlin, no Python runtime, no JS runtime — and is used
-  # only to *fetch* audio. Nothing remote is ever streamed, so Fathom never
-  # needs a live stream address to stay valid.
+  # Extractor — native Kotlin, no Python runtime — and is used only to
+  # *fetch* audio. Nothing remote is ever streamed, so Fathom never needs a
+  # live stream address to stay valid. Rhino is reachable and required for
+  # signature deobfuscation when streams arrive as signatureCipher.
   #
   # GPL-3.0, inherited from NewPipe Extractor: acceptable only because Fathom
   # is private and undistributed. Publishing it would force Fathom to GPL-3.0.
   newpipeextractor_dart: ^2.0.2
   path_provider: ^2.1.5
-  # Minimal ffmpeg-kit build: the app only runs a stream-copy mp4 remux
-  # (see lib/services/downloads.dart), which core FFmpeg covers. The full
-  # variant adds ~163 MB of unused native libs per build.
-  ffmpeg_kit_flutter_new_min: ^3.6.7
 
 dev_dependencies:
   flutter_test:
