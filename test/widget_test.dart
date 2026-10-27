@@ -10,7 +10,7 @@ void main() {
       MaterialApp(
         home: Material(
           child: PageHeader(
-            title: 'Feed',
+            title: 'Library',
             trailing: const [
               Icon(Icons.equalizer),
               Icon(Icons.settings),
@@ -20,7 +20,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Feed'), findsOneWidget);
+    expect(find.text('Library'), findsOneWidget);
     expect(find.byIcon(Icons.equalizer), findsOneWidget);
     expect(find.byIcon(Icons.settings), findsOneWidget);
   });
