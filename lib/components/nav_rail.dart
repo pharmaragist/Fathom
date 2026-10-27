@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
+import '../common/motion.dart';
 import '../content.dart' show ShellPage;
+import 'glass.dart';
 
 const double kPillHeight = 64;
 const double kHorizontalMargin = 4;
@@ -17,17 +19,6 @@ const double kNavBarHeight = 64;
 /// wider than the two items need, so the highlight reads as a pill behind the
 /// item rather than a band touching its neighbours.
 const double kPillInset = 6;
-
-/// How long the one background takes to travel between its two homes: from
-/// behind the active nav item out to the whole search toolbar, and back. Long
-/// enough to read as growth rather than a jump; it matches the nav item slide,
-/// so both moves look like one gesture.
-const Duration kBackgroundDuration = Duration(milliseconds: 380);
-
-/// The curve that growth uses. The overshoot is what sells the pill "popping"
-/// into the search field, and reversing through the same curve settles it back
-/// under the item on collapse.
-const Curve kBackgroundCurve = Curves.easeOutBack;
 
 class FloatingNavRail extends StatefulWidget {
   const FloatingNavRail({
@@ -181,8 +172,7 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
           Positioned.fill(
             child: ClipPath(
               clipper: _NotchedNavClipper(),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: _RailGlass(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -262,9 +252,28 @@ class _FloatingNavRailState extends State<FloatingNavRail> {
                           Positioned.fill(
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 280),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
                               layoutBuilder: _switcherLayout,
+                              transitionBuilder: (child, animation) {
+                                // The field replaces the nav items in place, so
+                                // a spring settle plus a small scale keeps the
+                                // two states feeling like one surface changing
+                                // role instead of two screens cross-fading.
+                                final curved = CurvedAnimation(
+                                  parent: animation,
+                                  curve: const FathomSpringCurve(),
+                                  reverseCurve: Curves.easeInCubic,
+                                );
+                                return FadeTransition(
+                                  opacity: curved,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(
+                                      begin: 0.97,
+                                      end: 1.0,
+                                    ).animate(curved),
+                                    child: child,
+                                  ),
+                                );
+                              },
                               child: _isSearching
                                   ? _NavSearchContent(
                                       key: const ValueKey('search_mode'),
@@ -384,68 +393,86 @@ class _NavSearchContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(TablerIcons.search, size: 18, color: accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: onChanged,
-              onSubmitted: (value) {
-                onSubmitted(value);
-                FocusScope.of(context).unfocus();
-              },
-              onTapOutside: (event) {
-                FocusScope.of(context).unfocus();
-              },
-              textInputAction: TextInputAction.search,
-              textAlignVertical: TextAlignVertical.center,
-              autocorrect: false,
-              enableSuggestions: false,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                color: FathomColors.onSurface,
-              ),
-              cursorColor: accent,
-              cursorHeight: 18,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: hintText,
-                hintStyle: TextStyle(
+    // One tap region for the whole search bar. The field's own
+    // `onTapOutside` used to fire for the sort chip too, which unfocused the
+    // field and collapsed the bar before the chip could handle its tap. A
+    // group around the field, chip and close control keeps every control in
+    // here alive; only a press outside the bar dismisses it.
+    return TapRegion(
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 20, right: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(TablerIcons.search, size: 18, color: accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                onChanged: onChanged,
+                onSubmitted: (value) {
+                  onSubmitted(value);
+                  FocusScope.of(context).unfocus();
+                },
+                textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
+                autocorrect: false,
+                enableSuggestions: false,
+                maxLines: 1,
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.2,
-                  color: FathomColors.onSurface.withValues(alpha: 0.38),
+                  color: FathomColors.onSurface,
+                ),
+                cursorColor: accent,
+                cursorHeight: 18,
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: hintText,
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    height: 1.2,
+                    color: FathomColors.onSurface.withValues(alpha: 0.38),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          if (sortLabel != null)
-            _SortChip(label: sortLabel!, accent: accent, onTap: onSort!),
-          const SizedBox(width: 6),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              return _RoundIconButton(
-                icon:
-                    value.text.isEmpty ? TablerIcons.x : TablerIcons.backspace,
-                color: FathomColors.onSurface.withValues(alpha: 0.6),
-                onTap: _handleTrailing,
-              );
-            },
-          ),
-        ],
+            const SizedBox(width: 8),
+            if (sortLabel != null)
+              _SortChip(
+                label: sortLabel!,
+                accent: accent,
+                onTap: () {
+                  // Sorting is a library action, not typing. Drop the
+                  // keyboard first so the sheet is not squeezed above it, but
+                  // do it from the chip's own tap: the field's old
+                  // onTapOutside fired on pointer-down and removed the chip
+                  // before it could handle the tap.
+                  FocusScope.of(context).unfocus();
+                  onSort!();
+                },
+              ),
+            const SizedBox(width: 6),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return _RoundIconButton(
+                  icon: value.text.isEmpty
+                      ? TablerIcons.x
+                      : TablerIcons.backspace,
+                  color: FathomColors.onSurface.withValues(alpha: 0.6),
+                  onTap: _handleTrailing,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -520,6 +547,35 @@ class _RoundIconButton extends StatelessWidget {
           child: Center(child: Icon(icon, size: 18, color: color)),
         ),
       ),
+    );
+  }
+}
+
+/// The rail's frosted layer.
+///
+/// This is the largest blurred surface in the app, and it sits directly over
+/// the shell's page swipe: the page content moves under the rail on every
+/// frame of that gesture, so the [BackdropFilter] has a different backdrop
+/// each frame and cannot reuse its result. Profiling the swipe put that cost
+/// on the raster thread — ~12-25ms a frame against an 11ms budget on a 90Hz
+/// panel — while the UI thread stayed under 1ms, which is why the gesture
+/// feels heavy without any Dart work to show for it.
+///
+/// Reading [GlassContainer.blurEnabled] is what makes Low-end mode mean
+/// something here: that setting exists to drop exactly this kind of cost, and
+/// the rail was the one glass surface that ignored it. Flat, the rail keeps
+/// its gradient and still reads as a raised bar; only the frosting goes.
+class _RailGlass extends StatelessWidget {
+  const _RailGlass({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!GlassContainer.blurEnabled) return child;
+    return BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+      child: child,
     );
   }
 }
@@ -657,32 +713,53 @@ class _NavBackground extends StatelessWidget {
         // search field's background. Only left and width grow; the vertical
         // inset is kept, so the field keeps the button's height instead of
         // becoming a bar the full height of the rail.
-        final left = expanded ? 0.0 : navLeft + active * half + kPillInset;
-        final width = expanded ? totalWidth : half - kPillInset * 2;
+        //
+        // Position and growth are two springs rather than one interpolation:
+        // tapping a destination slides the pill, tapping search grows it, and
+        // doing either mid-flight retargets the same physics from wherever the
+        // pill is on screen. The slight overshoot is the momentum spring doing
+        // its job, clipped by the rail's own stack rather than escaping it.
+        return SpringValue(
+          value: active.toDouble(),
+          spring: FathomMotion.momentum,
+          builder: (context, activeT) {
+            return SpringValue(
+              value: expanded ? 1.0 : 0.0,
+              spring: FathomMotion.momentum,
+              builder: (context, expandT) {
+                final left =
+                    (navLeft + activeT * half + kPillInset) * (1 - expandT);
+                final width = half -
+                    kPillInset * 2 +
+                    (totalWidth - half + kPillInset * 2) * expandT;
 
-        return Stack(
-          children: [
-            AnimatedPositioned(
-              duration: kBackgroundDuration,
-              curve: kBackgroundCurve,
-              left: left,
-              width: width,
-              // Constant in both states, hence the shared inset: the pill and
-              // the search background are the same height, so expanding reads
-              // as the pill sliding wide rather than the box changing shape.
-              top: kPillInset,
-              bottom: kPillInset,
-              child: AnimatedContainer(
-                // Slow enough to follow the accent swatch changing in settings
-                // without lagging behind the position animation.
-                duration: const Duration(milliseconds: 280),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-          ],
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: left,
+                      width: width,
+                      // Constant in both states, hence the shared inset: the
+                      // pill and the search background are the same height, so
+                      // expanding reads as the pill sliding wide rather than
+                      // the box changing shape.
+                      top: kPillInset,
+                      bottom: kPillInset,
+                      child: AnimatedContainer(
+                        // Slow enough to follow the accent swatch changing in
+                        // settings without lagging behind the position
+                        // animation.
+                        duration: const Duration(milliseconds: 280),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );

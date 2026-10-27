@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
 import '../common/library.dart';
+import '../common/motion.dart';
 import '../models/tracks.dart';
 import 'art.dart';
 
@@ -19,6 +19,7 @@ class CoverCarousel extends StatefulWidget {
     required this.next,
     required this.onSkipNext,
     required this.onSkipPrevious,
+    this.progress,
   });
 
   final bool isPlaying;
@@ -29,17 +30,24 @@ class CoverCarousel extends StatefulWidget {
   final Future<void> Function() onSkipNext;
   final Future<void> Function() onSkipPrevious;
 
+  /// Optional mirror of the deck's live offset, in slots.
+  ///
+  /// Now Playing puts its title and artist under the covers, outside this
+  /// widget's box, and wants them to travel with the art. The spring lives
+  /// here, so this is the one place that can publish it: the state writes
+  /// every offset change into [progress] and a sibling listens. It is a
+  /// notifier rather than a builder callback because the sibling is laid out
+  /// adjacent to the deck, not inside it, and only that sibling should rebuild
+  /// per frame — the page must not.
+  final ValueNotifier<double>? progress;
+
   @override
   State<CoverCarousel> createState() => _CoverCarouselState();
 }
 
 class _CoverCarouselState extends State<CoverCarousel>
     with SingleTickerProviderStateMixin {
-  static const _spring = SpringDescription(
-    mass: 1,
-    stiffness: 260,
-    damping: 26,
-  );
+  static const _spring = FathomMotion.momentum;
   static const _edgeResistance = 0.3;
   static const _neighbourScale = 0.14;
   static const _neighbourFade = 0.5;
@@ -48,6 +56,38 @@ class _CoverCarouselState extends State<CoverCarousel>
       AnimationController.unbounded(vsync: this);
 
   double _spacing = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _offset.addListener(_publishProgress);
+  }
+
+  /// Carries the live offset to [CoverCarousel.progress] so a sibling can move
+  /// with the deck. Writing the notifier does not rebuild this subtree — the
+  /// cards listen to the controller directly — so the only cost is the
+  /// listener's own rebuild of whatever elected to watch it.
+  ///
+  /// The one subtlety is *when* a change happens. Most come from the spring
+  /// ticking between frames, but a skip also snaps the controller from
+  /// `didUpdateWidget`, which runs during build. Marking a sibling's listeners
+  /// dirty there would be a build-phase write, so that case is deferred to the
+  /// end of the frame; the deck is then one frame behind for a single frame,
+  /// which is invisible next to the spring it is joining.
+  void _publishProgress() {
+    final progress = widget.progress;
+    if (progress == null) return;
+    if (progress.value == _offset.value) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) progress.value = _offset.value;
+      });
+      return;
+    }
+    progress.value = _offset.value;
+  }
 
   Object? _idOf(CoverCarousel w) {
     final i = w.selectedIndex;
@@ -77,13 +117,14 @@ class _CoverCarouselState extends State<CoverCarousel>
 
   @override
   void dispose() {
+    _offset.removeListener(_publishProgress);
     _offset.dispose();
     super.dispose();
   }
 
   void _springTo(double target, double velocity) {
     _offset.animateWith(
-      SpringSimulation(_spring, _offset.value, target, velocity),
+      _spring.simulation(from: _offset.value, to: target, velocity: velocity),
     );
   }
 
@@ -260,55 +301,71 @@ class _CoverArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final art = AnimatedScale(
-      scale: isPlaying ? 1.0 : 0.9,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        width: side,
-        height: side,
-        decoration: BoxDecoration(
-          color: FathomColors.mediaSurface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: FathomColors.shadow
-                  .withValues(alpha: isPlaying ? 0.55 : 0.40),
-              blurRadius: isPlaying ? 36 : 24,
-              offset: Offset(0, isPlaying ? 16 : 10),
+    // The Hero wraps the scale, not the other way round. Its flight rectangle
+    // is the card's full square; nesting it inside the pause/play scale made
+    // the destination a different size whenever playback was paused.
+    final artwork = SpringValue(
+      value: isPlaying ? 1.0 : 0.0,
+      spring: FathomMotion.gentle,
+      builder: (context, t) {
+        // Scale and shadow share one spring so the cover does not grow while
+        // its depth arrives late: playback reads as one material change.
+        final scale = 0.9 + 0.1 * t;
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: side,
+            height: side,
+            decoration: BoxDecoration(
+              color: FathomColors.mediaSurface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: FathomColors.shadow.withValues(alpha: 0.40 + 0.15 * t),
+                  blurRadius: 24 + 12 * t,
+                  offset: Offset(0, 10 + 6 * t),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: TrackArt(library: library, track: track, size: side),
-        ),
-      ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: TrackArt(library: library, track: track, size: side),
+            ),
+          ),
+        );
+      },
     );
 
-    return HeroMode(
-      enabled: isActive,
-      child: Hero(
-        tag: 'fathom-art-${track.id}',
-        placeholderBuilder: (context, heroSize, child) =>
-            SizedBox.fromSize(size: heroSize),
-        flightShuttleBuilder: (
-          flightContext,
-          animation,
-          flightDirection,
-          fromHeroContext,
-          toHeroContext,
-        ) {
-          final toHero = toHeroContext.widget as Hero;
-          return Material(
-            type: MaterialType.transparency,
-            child: SizedBox.square(dimension: side, child: toHero.child),
-          );
-        },
-        child: art,
-      ),
+    // Only the active card carries a tag. The side covers are a peek at what
+    // a skip would reach, not destinations of their own, and two tagged copies
+    // of the same track would make the flight ambiguous.
+    if (!isActive) return artwork;
+
+    return Hero(
+      tag: 'fathom-art-${track.id}',
+      flightShuttleBuilder: (
+        flightContext,
+        animation,
+        flightDirection,
+        fromHeroContext,
+        toHeroContext,
+      ) {
+        // Read the destination child rather than rebuilding it, and pin the
+        // shuttle to the card's full square so a paused 0.9 scale cannot shrink
+        // the flight on the way in.
+        final toHero = toHeroContext.widget as Hero;
+        return Material(
+          type: MaterialType.transparency,
+          child: SizedBox.square(
+            dimension: side,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: toHero.child,
+            ),
+          ),
+        );
+      },
+      child: artwork,
     );
   }
 }

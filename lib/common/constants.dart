@@ -1,9 +1,5 @@
 const String kAppName = 'Fathom';
-const String kAppCreator = 'pharmaracist';
-const String kAppSubtitle = 'by $kAppCreator';
-const String kAppVersion = '1.0.0';
 
-const double kBottomNavWidth = 305.0;
 const List<String> kFontOptions = ['System', 'Oswald'];
 
 const List<double> kSpeedFactors = [0.5, 1.0, 1.25, 1.5, 2.0];

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../common/colors.dart';
+import '../common/motion.dart';
 
 /// Minimal flat slider primitive.
 ///
@@ -19,8 +20,6 @@ class FlatSlider extends StatefulWidget {
     this.enabled = true,
     this.vertical = false,
     this.origin = 0,
-    this.animationDuration = const Duration(milliseconds: 200),
-    this.animationCurve = Curves.easeOutCubic,
   });
 
   /// Normalised value, 0..1.
@@ -36,8 +35,6 @@ class FlatSlider extends StatefulWidget {
   final bool enabled;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
-  final Duration animationDuration;
-  final Curve animationCurve;
 
   @override
   State<FlatSlider> createState() => _FlatSliderState();
@@ -107,56 +104,63 @@ class _FlatSliderState extends State<FlatSlider> {
             height: vertical ? null : _tapExtent,
             width: vertical ? _tapExtent : null,
             child: Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                height: vertical
-                    ? null
-                    : (_active ? _activeThickness : _trackThickness),
-                width: vertical
-                    ? (_active ? _activeThickness : _trackThickness)
-                    : null,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: FathomColors.fill,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Align(
-                  child: LayoutBuilder(
-                    builder: (context, track) {
-                      final span = vertical ? track.maxHeight : track.maxWidth;
-                      return TweenAnimationBuilder<double>(
-                        tween: Tween<double>(end: target),
-                        duration:
-                            _active ? Duration.zero : widget.animationDuration,
-                        curve: widget.animationCurve,
-                        builder: (context, value, _) {
-                          final lo = math.min(value, origin) * span;
-                          final hi = math.max(value, origin) * span;
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Positioned(
-                                left: vertical ? 0 : lo,
-                                right: vertical ? 0 : null,
-                                top: vertical ? null : 0,
-                                bottom: vertical ? lo : 0,
-                                width: vertical ? null : hi - lo,
-                                height: vertical ? hi - lo : null,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: widget.color,
-                                    borderRadius: BorderRadius.circular(99),
+              // Pressed thickness is feedback, so it runs on the fast press
+              // spring. The fill is driven by the value itself: while the
+              // finger owns it the controller snaps, and a change from outside
+              // (preset applied, band reset) springs into place.
+              child: SpringValue(
+                value: _active ? 1.0 : 0.0,
+                spring: FathomMotion.press,
+                builder: (context, active) {
+                  final grip = active.clamp(0.0, 1.0);
+                  final thickness = _trackThickness +
+                      (_activeThickness - _trackThickness) * grip;
+                  return Container(
+                    height: vertical ? null : thickness,
+                    width: vertical ? thickness : null,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: FathomColors.fill,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Align(
+                      child: LayoutBuilder(
+                        builder: (context, track) {
+                          final span =
+                              vertical ? track.maxHeight : track.maxWidth;
+                          return SpringValue(
+                            value: target,
+                            immediate: _active,
+                            spring: FathomMotion.standard,
+                            builder: (context, value) {
+                              final lo = math.min(value, origin) * span;
+                              final hi = math.max(value, origin) * span;
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Positioned(
+                                    left: vertical ? 0 : lo,
+                                    right: vertical ? 0 : null,
+                                    top: vertical ? null : 0,
+                                    bottom: vertical ? lo : 0,
+                                    width: vertical ? null : hi - lo,
+                                    height: vertical ? hi - lo : null,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: widget.color,
+                                        borderRadius: BorderRadius.circular(99),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
-                ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

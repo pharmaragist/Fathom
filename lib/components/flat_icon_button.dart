@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../common/colors.dart';
+import '../common/motion.dart';
 
 class FlatIconButton extends StatefulWidget {
   const FlatIconButton({
@@ -58,19 +59,24 @@ class _FlatIconButtonState extends State<FlatIconButton> {
       onTap: widget.enabled ? widget.onTap : null,
       child: Padding(
         padding: widget.padding,
-        child: AnimatedScale(
-          scale: _down ? 0.92 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          child: AnimatedOpacity(
-            opacity: _down ? 0.55 : 1.0,
-            duration: const Duration(milliseconds: 100),
-            child: Icon(
-              widget.icon,
-              size: widget.size,
-              color: effectiveColor,
-            ),
-          ),
+        // A press is one gesture, so scale and dim share one spring: two timed
+        // animations would settle a frame apart and read as two events.
+        child: SpringValue(
+          value: _down ? 1.0 : 0.0,
+          spring: FathomMotion.press,
+          builder: (context, t) {
+            return Transform.scale(
+              scale: 1 - 0.08 * t,
+              child: Opacity(
+                opacity: (1 - 0.45 * t).clamp(0.0, 1.0),
+                child: Icon(
+                  widget.icon,
+                  size: widget.size,
+                  color: effectiveColor,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

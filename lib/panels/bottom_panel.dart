@@ -1,18 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
 import '../common/library.dart';
+import '../common/motion.dart';
 import '../common/player.dart';
 import '../common/search.dart';
 import '../common/settings.dart';
 import '../components/art.dart';
+import '../components/flat_icon_button.dart';
 import '../components/glass.dart';
 import '../components/nav_rail.dart';
+import '../components/track_text_morph.dart';
 import '../content.dart' show ShellPage;
 import '../models/tracks.dart';
 import '../pages/library.dart'
@@ -23,10 +25,8 @@ class BottomPanel extends StatelessWidget {
     super.key,
     required this.searchController,
     required this.onSearchOpenChanged,
-    required this.heroFromPanel,
     required this.page,
     required this.onGoTo,
-    this.animating = false,
   });
 
   final TextEditingController searchController;
@@ -35,19 +35,11 @@ class BottomPanel extends StatelessWidget {
   /// the dismiss layer sitting between the page and this panel.
   final ValueChanged<bool> onSearchOpenChanged;
 
-  /// Coordinates the now-playing hero with the page underneath; owned by the
-  /// shell and handed to both sides.
-  final ValueNotifier<bool> heroFromPanel;
-
   /// The destination on screen, which the rail highlights from.
   final ValueListenable<ShellPage> page;
 
   /// Moves the shell to another destination.
   final ValueChanged<ShellPage> onGoTo;
-
-  /// True while the shell cross-fades pages, so a nav tap is dropped rather
-  /// than swapping the tree out from under the animation.
-  final bool animating;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +72,7 @@ class BottomPanel extends StatelessWidget {
               onSearchOpenChanged: onSearchOpenChanged,
               onSearchCleared: search.clear,
               page: page,
-              onGoTo: animating ? (page) {} : onGoTo,
+              onGoTo: onGoTo,
               sortLabel: sorting ? currentSort.label : null,
               onSort: !sorting
                   ? null
@@ -96,7 +88,7 @@ class BottomPanel extends StatelessWidget {
           left: kHorizontalMargin,
           right: kHorizontalMargin,
           bottom: bottomSafe + kNavBarHeight + kElevationMargin,
-          child: FloatingIslandPlayer(heroFromPanel: heroFromPanel),
+          child: FloatingIslandPlayer(),
         ),
       ],
     );
@@ -104,10 +96,7 @@ class BottomPanel extends StatelessWidget {
 }
 
 class FloatingIslandPlayer extends StatelessWidget {
-  const FloatingIslandPlayer({super.key, required this.heroFromPanel});
-
-  /// Written when the hero animation starts, so the page below can match it.
-  final ValueNotifier<bool> heroFromPanel;
+  const FloatingIslandPlayer({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -132,53 +121,84 @@ class FloatingIslandPlayer extends StatelessWidget {
     final player = context.read<FathomPlayer>();
     if (track == null) return const SizedBox.shrink();
 
-    return GlassContainer(
-      radius: kPillHeight / 2,
-      bgOpacity: 0.11,
-      borderOpacity: 0.07,
-      shadow: true,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: _PillProgress(player: player),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _PillCards(
-                    track: track,
-                    previous: previous,
-                    next: next,
-                    library: library,
-                    heroFromPanel: heroFromPanel,
-                    onOpen: () {
-                      heroFromPanel.value = true;
-                      Navigator.of(context).push(nowPlayingRoute());
-                    },
-                    onSkipNext: player.skipNext,
-                    onSkipPrevious: player.skipPrevious,
+    return _PillArrival(
+      child: GlassContainer(
+        radius: kPillHeight / 2,
+        bgOpacity: 0.11,
+        borderOpacity: 0.07,
+        shadow: true,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _PillProgress(player: player),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PillCards(
+                      track: track,
+                      previous: previous,
+                      next: next,
+                      library: library,
+                      onOpen: () {
+                        // No flight from the pill: the tags belong to the
+                        // library rows and the Now Playing destination.
+                        Navigator.of(context).push(nowPlayingRoute());
+                      },
+                      onSkipNext: player.skipNext,
+                      onSkipPrevious: player.skipPrevious,
+                    ),
                   ),
-                ),
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  onPressed: player.togglePlay,
-                  icon: Icon(
-                    isPlaying
+                  FlatIconButton(
+                    icon: isPlaying
                         ? TablerIcons.playerPauseFilled
                         : TablerIcons.playerPlayFilled,
-                    size: 24,
-                    color: FathomColors.onSurface,
+                    onTap: player.togglePlay,
+                    padding: const EdgeInsets.all(4),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The mini player arriving when a first track starts.
+///
+/// It enters from slightly below and slightly small, on the gentle spring, so
+/// the surface reads as rising out of the rail rather than blinking on. Only
+/// the first appearance animates: the state is rebuilt for every position tick
+/// and must not replay this while the user is listening.
+class _PillArrival extends StatelessWidget {
+  const _PillArrival({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SpringValue(
+      value: 1,
+      animateOnMount: true,
+      spring: FathomMotion.gentle,
+      builder: (context, t) {
+        final eased = t.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: eased,
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - eased)),
+            child: Transform.scale(
+              scale: 0.97 + 0.03 * eased,
+              alignment: Alignment.bottomCenter,
+              child: child,
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -229,7 +249,6 @@ class _PillCards extends StatefulWidget {
     required this.previous,
     required this.next,
     required this.library,
-    required this.heroFromPanel,
     required this.onOpen,
     required this.onSkipNext,
     required this.onSkipPrevious,
@@ -239,7 +258,6 @@ class _PillCards extends StatefulWidget {
   final FathomTrack? previous;
   final FathomTrack? next;
   final FathomLibrary library;
-  final ValueNotifier<bool> heroFromPanel;
   final VoidCallback onOpen;
   final Future<void> Function() onSkipNext;
   final Future<void> Function() onSkipPrevious;
@@ -250,11 +268,7 @@ class _PillCards extends StatefulWidget {
 
 class _PillCardsState extends State<_PillCards>
     with SingleTickerProviderStateMixin {
-  static const _spring = SpringDescription(
-    mass: 1,
-    stiffness: 260,
-    damping: 26,
-  );
+  static const _spring = FathomMotion.momentum;
   static const _edgeResistance = 0.3;
   static const _neighbourScale = 0.14;
   static const _neighbourFade = 0.5;
@@ -292,7 +306,7 @@ class _PillCardsState extends State<_PillCards>
 
   void _springTo(double target, double velocity) {
     _offset.animateWith(
-      SpringSimulation(_spring, _offset.value, target, velocity),
+      _spring.simulation(from: _offset.value, to: target, velocity: velocity),
     );
   }
 
@@ -385,8 +399,10 @@ class _PillCardsState extends State<_PillCards>
           track: track,
           width: cardWidth,
           library: widget.library,
-          isActive: slot == 0,
-          heroFromPanel: widget.heroFromPanel,
+          // Only the card on screen is the source of the flight. The
+          // neighbours are a peek at what a swipe would reach, and tagging
+          // them would create two heroes for one tag.
+          hero: slot == 0,
         ),
       ),
     );
@@ -436,69 +452,58 @@ class _PillCardFace extends StatelessWidget {
     required this.track,
     required this.width,
     required this.library,
-    required this.isActive,
-    required this.heroFromPanel,
+    required this.hero,
   });
 
   final FathomTrack track;
   final double width;
   final FathomLibrary library;
 
-  /// Only the current card's art carries the hero tag, exactly as on the
-  /// carousel.
-  final bool isActive;
-  final ValueNotifier<bool> heroFromPanel;
+  /// Whether this card carries the shared-element tags Now Playing receives.
+  final bool hero;
 
   @override
   Widget build(BuildContext context) {
+    Widget art = TrackArt(
+      library: library,
+      track: track,
+      size: 40,
+      radius: 50,
+    );
+    if (hero) {
+      art = Hero(tag: 'fathom-art-${track.id}', child: art);
+    }
+
+    Widget text = TrackTextMorph(
+      title: track.title,
+      artist: track.artist,
+      titleStyle: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+        letterSpacing: -0.14,
+        color: FathomColors.onSurface,
+      ),
+      artistStyle: TextStyle(
+        fontSize: 11,
+        color: FathomColors.onSurface.withValues(alpha: 0.5),
+      ),
+      gap: 1,
+    );
+    if (hero) {
+      text = Hero(
+        tag: 'fathom-text-${track.id}',
+        flightShuttleBuilder: trackTextHeroShuttle,
+        child: text,
+      );
+    }
+
     return SizedBox(
       width: width,
       child: Row(
         children: [
-          ValueListenableBuilder<bool>(
-            valueListenable: heroFromPanel,
-            builder: (context, fromPanel, child) =>
-                HeroMode(enabled: isActive && fromPanel, child: child!),
-            child: Hero(
-              tag: 'fathom-art-${track.id}',
-              child: TrackArt(
-                library: library,
-                track: track,
-                size: 40,
-                radius: 50,
-              ),
-            ),
-          ),
+          art,
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    letterSpacing: -0.14,
-                    color: FathomColors.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  track.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: FathomColors.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Expanded(child: text),
         ],
       ),
     );

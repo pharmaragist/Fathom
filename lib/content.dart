@@ -1,17 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import 'common/library.dart';
+import 'common/motion.dart';
 import 'common/player.dart';
+import 'common/selection.dart';
 import 'common/settings.dart';
-import 'components/art.dart';
 import 'components/backdrop.dart';
 import 'components/flat_icon_button.dart';
+import 'components/limiter_button.dart';
 import 'components/page_header.dart';
 import 'components/shell_chrome.dart';
-import 'components/toast_layer.dart';
-import 'models/tracks.dart';
 import 'pages/equalizer.dart';
 import 'pages/library.dart';
 import 'panels/bottom_panel.dart';
@@ -21,28 +23,6 @@ class RootShell extends StatefulWidget {
 
   @override
   State<RootShell> createState() => _RootShellState();
-}
-
-/// The ambient backdrop behind the shell, carrying the current track's artwork
-/// so the gradient follows whatever is playing.
-///
-/// It reads the player and the library itself, which keeps the shared chrome
-/// ignorant of both and lets the shell hand out a constant instance: the
-/// artwork future only re-resolves when the current track changes.
-class _TrackBackdrop extends StatelessWidget {
-  const _TrackBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    final track = context.select<FathomPlayer, FathomTrack?>(
-      (player) => player.currentTrack,
-    );
-    final library = context.read<FathomLibrary>();
-
-    return AmbientBackdrop(
-      artwork: track == null ? null : trackArtBytes(library, track),
-    );
-  }
 }
 
 /// The shell's two destinations, in rail order.
@@ -74,26 +54,31 @@ class _RootShellState extends State<RootShell> {
     initialPage: _page.value.index,
   );
 
-  /// Whether the page stack is mid-transition, so a tap on the other nav item
-  /// is dropped instead of queueing a second scroll behind the first.
-  bool _animating = false;
+  /// How long a rail tap takes to slide the body to the other destination.
+  ///
+  /// Short on purpose: the destination changes on the tap itself, so the slide
+  /// only has to carry the eye across. Anything longer reads as waiting for
+  /// the app rather than as a transition. [FathomSpringCurve] gives the move
+  /// the same decelerating arrival as the springs elsewhere; the page view's
+  /// own drag settle stays on its built-in spring.
+  static const Duration _pageTransitionDuration = Duration(milliseconds: 200);
 
   /// Mirrors whether the search rail is expanded. The dismiss layer needs it
   /// in the shell, where it can cover the page as well as the rail.
   final ValueNotifier<bool> _searchOpen = ValueNotifier<bool>(false);
 
-  /// Coordinates the now-playing hero between the mini player and the page
-  /// below it: written by both, read by both, so the shell owns it.
-  final ValueNotifier<bool> heroFromPanel = ValueNotifier<bool>(false);
+  /// The library's multi-track selection.
+  ///
+  /// It lives on the shell rather than the page because the header is built
+  /// outside the page body: the title and the select-all control have to read
+  /// the same selection the rows do. Nothing persists it — leaving the library
+  /// drops it, and so does typing in the search field.
+  final FathomSelection _selection = FathomSelection();
 
   @override
   void initState() {
     super.initState();
-    // A swipe is the other way to change pages, so the view has to write back
-    // into the same notifier the rail reads. Done here rather than in a
-    // listener on the controller because `PageView` only reports a settled
-    // page, which is exactly when the destination has really changed.
-    _pages.addListener(_onPageSettled);
+    _page.addListener(_onPageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final library = context.read<FathomLibrary>();
@@ -103,144 +88,143 @@ class _RootShellState extends State<RootShell> {
 
   @override
   void dispose() {
-    _pages.removeListener(_onPageSettled);
+    _page.removeListener(_onPageChanged);
+    _selection.dispose();
     _pages.dispose();
     _searchController.dispose();
     _page.dispose();
     _searchOpen.dispose();
-    heroFromPanel.dispose();
     super.dispose();
   }
 
-  /// Adopts a swipe as the new destination once the view has come to rest.
+  /// Drops the selection when the library stops being the destination.
   ///
-  /// Half-way is the threshold: `page.round()` is the nearest page, so a swipe
-  /// that was dragged back to its origin leaves the destination alone.
-  ///
-  /// Leaving the library drops any search, exactly as a rail tap does, so a
-  /// swipe away cannot strand the open search field and its dismiss layer on a
-  /// page that no longer shows them.
-  void _onPageSettled() {
-    if (_pages.page == null) return;
-    final settled = ShellPage.values[_pages.page!.round()];
-    if (settled == _page.value) return;
-    FocusScope.of(context).unfocus();
-    _page.value = settled;
+  /// The subscription is to the page notifier itself, so a rail tap and a
+  /// settled swipe are both covered: both paths write `_page`, and the header
+  /// and rows are describing a surface that is no longer on screen.
+  void _onPageChanged() {
+    if (_page.value != ShellPage.library) _selection.exit();
   }
 
-  /// Moves to another destination. A rail tap is the same move a swipe makes,
-  /// so it scrolls the view rather than swapping anything, and the swipe back
-  /// is symmetric for free.
+  /// Moves to another destination from the rail.
   ///
-  /// The notifier is only written through [_runTransition], so a tap dropped
-  /// while a move is already in flight cannot leave the rail highlighting one
-  /// destination while the view sits on another.
+  /// The destination is written before the scroll starts and the scroll is not
+  /// awaited: the rail and the header answer the tap in the same frame while
+  /// the body catches up. A second tap retargets the animation in flight rather
+  /// than being dropped. Nothing else can change the destination: the page view
+  /// has no drag physics, so a stray horizontal gesture never leaves the page
+  /// the rail chose.
   void _goTo(ShellPage target) {
     if (_page.value == target) return;
     FocusScope.of(context).unfocus();
-    _runTransition(target);
+    if (target == ShellPage.equalizer) {
+      // Arriving at the equalizer is the moment its dials have to work. The
+      // health check rebuilds a native effect the platform has released.
+      unawaited(context.read<FathomPlayer>().ensureEqReady());
+    }
+    _page.value = target;
+    _pages.animateToPage(
+      target.index,
+      duration: _pageTransitionDuration,
+      curve: const FathomSpringCurve(),
+    );
   }
 
-  /// Scrolls the view to [target] and locks nav taps until it settles, so a
-  /// second tap cannot queue a scroll behind an in-flight one.
-  void _runTransition(ShellPage target) {
-    if (_animating) return;
-    _animating = true;
-    setState(() {});
-    _page.value = target;
-    _pages
-        .animateToPage(
-      target.index,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    )
-        .whenComplete(() {
-      if (!mounted) return;
-      setState(() => _animating = false);
-    });
+  /// The header title for [page].
+  ///
+  /// Selecting replaces the destination's title with the size of the selection,
+  /// which is the one thing the mode has to communicate while the rows
+  /// themselves are being tapped. Zero selected is named rather than counted so
+  /// entering the mode never reads as "0 selected".
+  String _headerTitle(ShellPage page) {
+    if (page != ShellPage.library || !_selection.active) return page.title;
+    final count = _selection.count;
+    return count == 0 ? 'Select tracks' : '$count selected';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Backdrop plus header, built once. Only the page body below it
-          // animates when the destination changes, so neither layer is
-          // duplicated or cross-faded with the outgoing page.
-          ValueListenableBuilder<ShellPage>(
-            valueListenable: _page,
-            builder: (context, page, _) => ShellChrome(
-              backdrop: const _TrackBackdrop(),
-              header: PageHeader(
-                title: page.title,
-                trailing: page == ShellPage.library
-                    ? shellTrailing(context)
-                    : _equalizerTrailing(context),
-              ),
-              // The swipe view owns the body only: the title and its controls
-              // change in place while the bodies slide past each other, which
-              // is what keeps the header from moving with them.
-              //
-              // Both destinations stay mounted. The library is the expensive
-              // one — it owns a scroll controller, the sorted/filtered list
-              // memos and the live remote search — so it is never disposed, and
-              // swiping away only moves it off screen. An `AnimatedSwitcher`
-              // would destroy it on every trip to the equalizer and rebuild it
-              // (and re-run the library scan) on the way back.
-              body: PageView(
-                controller: _pages,
-                // A page is wide enough to read one at a time; the swipe is a
-                // deliberate move between two destinations, not a carousel.
-                physics: const PageScrollPhysics(),
-                children: [
-                  _KeepAlive(
-                    child: RepaintBoundary(
-                      child: LibraryPage(heroFromPanel: heroFromPanel),
-                    ),
+    return _SelectionPopScope(
+      selection: _selection,
+      child: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Backdrop plus header, built once. Only the page body below it
+            // animates when the destination changes, so neither layer is
+            // duplicated or cross-faded with the outgoing page.
+            ValueListenableBuilder<ShellPage>(
+              valueListenable: _page,
+              builder: (context, page, _) => ShellChrome(
+                backdrop: const AmbientBackdrop(),
+                // Only the header listens to the selection. The page body below
+                // must not be rebuilt by the shell when a row is toggled: the
+                // library repaints its own rows, and keeping the two layers
+                // independent is what preserves the mounted list.
+                header: ListenableBuilder(
+                  listenable: _selection,
+                  builder: (context, _) => PageHeader(
+                    title: _headerTitle(page),
+                    trailing: page == ShellPage.library
+                        ? shellTrailing(context, selection: _selection)
+                        : _equalizerTrailing(context),
                   ),
-                  const _KeepAlive(
-                    child: RepaintBoundary(child: EqualizerPage()),
-                  ),
-                ],
+                ),
+                // The swipe view owns the body only: the title and its controls
+                // change in place while the bodies slide past each other, which
+                // is what keeps the header from moving with them.
+                //
+                // Both destinations stay mounted. The library is the expensive
+                // one — it owns a scroll controller, the sorted/filtered list
+                // memos and the live remote search — so it is never disposed, and
+                // swiping away only moves it off screen. An `AnimatedSwitcher`
+                // would destroy it on every trip to the equalizer and rebuild it
+                // (and re-run the library scan) on the way back.
+                body: PageView(
+                  controller: _pages,
+                  // Destinations change only from the rail. The view is kept so
+                  // a rail tap can still animate the body across, but a
+                  // horizontal drag must not leave a page the rail did not pick.
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _KeepAlive(
+                      child: RepaintBoundary(
+                        child: LibraryPage(selection: _selection),
+                      ),
+                    ),
+                    const _KeepAlive(
+                      child: RepaintBoundary(child: EqualizerPage()),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          // Messages live directly under the header and above every page, so a
-          // download report never lands on the mini player or the rail that it
-          // is usually about. The layer decides its own pointer behaviour: a
-          // toast is information and must not take a tap meant for the list,
-          // but a long-running card carries a close control that has to be
-          // reachable, so the decision cannot be made here.
-          const Positioned.fill(child: FathomToastLayer()),
-          // Full-screen dismiss layer for the search rail. It sits between
-          // the page and the panel: the panel paints and hit-tests above it,
-          // so the rail, the mini player and the field's own context menu are
-          // never swallowed by it. Only presses on the page reach it, which is
-          // exactly where a stray tap could start playback.
-          Positioned.fill(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _searchOpen,
-              builder: (context, searching, _) => !searching
-                  ? const SizedBox.shrink()
-                  : GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => FocusScope.of(context).unfocus(),
-                    ),
+            // Full-screen dismiss layer for the search rail. It sits between
+            // the page and the panel: the panel paints and hit-tests above it,
+            // so the rail, the mini player and the field's own context menu are
+            // never swallowed by it. Only presses on the page reach it, which is
+            // exactly where a stray tap could start playback.
+            Positioned.fill(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _searchOpen,
+                builder: (context, searching, _) => !searching
+                    ? const SizedBox.shrink()
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => FocusScope.of(context).unfocus(),
+                      ),
+              ),
             ),
-          ),
-          Positioned.fill(
-            child: BottomPanel(
-              page: _page,
-              animating: _animating,
-              onGoTo: _goTo,
-              onSearchOpenChanged: (open) => _searchOpen.value = open,
-              searchController: _searchController,
-              heroFromPanel: heroFromPanel,
+            Positioned.fill(
+              child: BottomPanel(
+                page: _page,
+                onGoTo: _goTo,
+                onSearchOpenChanged: (open) => _searchOpen.value = open,
+                searchController: _searchController,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -251,6 +235,7 @@ class _RootShellState extends State<RootShell> {
   /// so there is deliberately no back button here: the nav item is the one way
   /// between destinations.
   List<Widget> _equalizerTrailing(BuildContext context) => [
+        const LimiterButton(),
         FlatIconButton(
           icon: TablerIcons.refresh,
           size: 22,
@@ -259,6 +244,29 @@ class _RootShellState extends State<RootShell> {
           onTap: () => context.read<FathomPlayer>().applyEqPreset('Flat'),
         ),
       ];
+}
+
+/// Intercepts the system back gesture while a library selection is active.
+///
+/// Selection is a mode, not a route, so the first back press must leave the
+/// mode rather than the app. A [PopScope] keeps that rule in the shell, where
+/// the selection lives, and stays out of the page body's build.
+class _SelectionPopScope extends StatelessWidget {
+  const _SelectionPopScope({required this.selection, required this.child});
+
+  final FathomSelection selection;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !selection.active,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selection.active) selection.exit();
+      },
+      child: child,
+    );
+  }
 }
 
 /// Keeps a swipe view page mounted while it is off screen.

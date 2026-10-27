@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -9,6 +10,7 @@ import 'package:volume_controller/volume_controller.dart';
 import '../common/colors.dart';
 import '../common/constants.dart';
 import '../common/library.dart';
+import '../common/motion.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/art.dart';
@@ -16,6 +18,7 @@ import '../components/carousel.dart';
 import '../components/flat_icon_button.dart';
 import '../components/flat_slider.dart';
 import '../components/glass.dart';
+import '../components/track_title_deck.dart';
 import '../models/tracks.dart';
 import '../panels/queue.dart';
 
@@ -28,6 +31,17 @@ class NowPlayingPage extends StatefulWidget {
 
 class _NowPlayingPageState extends State<NowPlayingPage> {
   double? _dragRatio;
+
+  /// The cover deck's live offset, mirrored out of [CoverCarousel] so the
+  /// title/artist pair beside it can travel with the same motion. The carousel
+  /// owns the spring; this only carries its value to a sibling.
+  final ValueNotifier<double> _deckOffset = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _deckOffset.dispose();
+    super.dispose();
+  }
 
   void _seekEnd(FathomPlayer player, double ratio) {
     final d = player.duration;
@@ -86,6 +100,7 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                       queue: player.queue,
                       previous: player.previousTrack,
                       next: player.nextTrack,
+                      progress: _deckOffset,
                       onSkipNext: player.skipNext,
                       onSkipPrevious: player.skipPrevious,
                     ),
@@ -97,7 +112,25 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
                       child: Column(
                         children: [
                           const SizedBox(height: 8),
-                          _TitleRow(title: track.title, artist: track.artist),
+                          TrackTitleDeck(
+                            progress: _deckOffset,
+                            current: track,
+                            previous: player.previousTrack,
+                            next: player.nextTrack,
+                            heroTag: 'fathom-text-${track.id}',
+                            titleStyle: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                              color: FathomColors.onMedia,
+                            ),
+                            artistStyle: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.3,
+                              color: FathomColors.onMediaMuted,
+                            ),
+                          ),
                           const SizedBox(height: 16),
                           _SeekSection(
                             dragRatio: _dragRatio,
@@ -134,7 +167,14 @@ class _BackdropLayer extends StatefulWidget {
 }
 
 class _BackdropLayerState extends State<_BackdropLayer> {
-  Uint8List? _bytes;
+  /// A blurred bed baked once per track.
+  ///
+  /// The old build ran a full-screen [ImageFiltered] Gaussian on every frame of
+  /// the hero flight. Baking the blur into a small opaque image moves that cost
+  /// to the track change and leaves the transition compositing one ordinary
+  /// texture. It is deliberately low resolution: the bed is an ambient wash,
+  /// not something the eye reads detail from.
+  ui.Image? _image;
   FathomTrack? _requested;
 
   @override
@@ -149,31 +189,110 @@ class _BackdropLayerState extends State<_BackdropLayer> {
     if (old.track != widget.track) _load(widget.track);
   }
 
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
   Future<void> _load(FathomTrack track) async {
     if (_requested == track) return;
     _requested = track;
     final bytes = await trackArtBytes(context.read<FathomLibrary>(), track);
     if (!mounted || _requested != track) return;
-    setState(() => _bytes = bytes);
+    if (bytes == null || bytes.isEmpty) {
+      _image?.dispose();
+      setState(() => _image = null);
+      return;
+    }
+
+    ui.Image? baked;
+    try {
+      baked = await _bakeBlur(bytes);
+    } catch (_) {
+      baked = null;
+    }
+    if (!mounted || _requested != track) {
+      baked?.dispose();
+      return;
+    }
+
+    final old = _image;
+    setState(() => _image = baked);
+    old?.dispose();
+  }
+
+  Future<ui.Image> _bakeBlur(Uint8List bytes) async {
+    // 360 x 800 matches the phone's tall aspect closely enough for a bed that
+    // is stretched edge to edge. The blur is applied at this size, so it costs
+    // once and never enters the transition's frame budget.
+    const width = 360;
+    const height = 800;
+
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 720);
+    final frame = await codec.getNextFrame();
+    final source = frame.image;
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+        Paint()..color = FathomColors.mediaBackground,
+      );
+
+      // Slight overscan keeps the blurred edge from pulling transparent pixels
+      // into view once the bed is stretched to the screen.
+      final scale =
+          math.max(width / source.width, height / source.height) * 1.16;
+      final destination = Rect.fromCenter(
+        center: const Offset(width / 2, height / 2),
+        width: source.width * scale,
+        height: source.height * scale,
+      );
+      canvas.drawImageRect(
+        source,
+        Rect.fromLTWH(
+          0,
+          0,
+          source.width.toDouble(),
+          source.height.toDouble(),
+        ),
+        destination,
+        Paint()
+          ..filterQuality = FilterQuality.medium
+          ..imageFilter = ui.ImageFilter.blur(sigmaX: 13, sigmaY: 13),
+      );
+
+      final picture = recorder.endRecording();
+      try {
+        return await picture.toImage(width, height);
+      } finally {
+        picture.dispose();
+      }
+    } finally {
+      source.dispose();
+      codec.dispose();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bytes = _bytes;
+    final image = _image;
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (bytes != null && bytes.isNotEmpty)
+        if (image != null)
           RepaintBoundary(
-            child: ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-              child: Image.memory(
-                bytes,
-                fit: BoxFit.cover,
-                cacheWidth: 360,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.low,
-              ),
+            // The bed is already blurred and opaque. No BackdropFilter and no
+            // runtime ImageFiltered layer sit under the hero flight.
+            child: RawImage(
+              image: image,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.low,
             ),
           )
         else
@@ -208,49 +327,6 @@ class _Grabber extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TitleRow extends StatelessWidget {
-  const _TitleRow({required this.title, required this.artist});
-
-  final String title;
-  final String artist;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.start,
-          textDirection: TextDirection.ltr,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: FathomColors.onMedia,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          artist,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.start,
-          textDirection: TextDirection.ltr,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.3,
-            color: FathomColors.onMediaMuted,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -497,6 +573,7 @@ Future<void> showQueueBottomSheet(BuildContext context) {
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: FathomColors.shadow.withValues(alpha: 0.55),
+    sheetAnimationStyle: kModalMotion,
     builder: (ctx) => const Padding(
       padding: EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: FractionallySizedBox(
