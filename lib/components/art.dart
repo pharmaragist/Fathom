@@ -101,6 +101,11 @@ class _ArtImage extends StatelessWidget {
     // 1000px wide, and decoding it at full resolution for a 48px tile costs
     // several megabytes and a visible decode stall; the cache key below makes
     // every reader of the same track share one correctly sized image.
+    //
+    // Only the height is given: `cacheWidth` and `cacheHeight` together resize
+    // the decoded image to exactly those dimensions, which flattens a 16:9
+    // remote thumbnail into the square tile. One dimension keeps the source
+    // aspect ratio, and [BoxFit.cover] crops it to the tile.
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final target = (size * ratio).round();
     final cacheSize = target > 0 && size.isFinite ? target : null;
@@ -111,7 +116,6 @@ class _ArtImage extends StatelessWidget {
         bytes,
         width: size,
         height: size,
-        cacheWidth: cacheSize,
         cacheHeight: cacheSize,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.low,
