@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,19 +8,29 @@ import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
 import '../common/library.dart';
+import '../common/library_diff.dart';
+import '../common/motion.dart';
 import '../common/player.dart';
 import '../common/search.dart';
+import '../common/selection.dart';
 import '../common/settings.dart';
-import '../common/toasts.dart';
 import '../components/art.dart';
 import '../components/glass.dart';
 import '../components/styled_list_view.dart';
 import '../components/track_actions.dart';
+import '../components/track_text_morph.dart';
 import '../models/tracks.dart';
 import '../models/ytmusic.dart';
 import '../services/downloads.dart';
 import '../services/yt_source.dart';
 import 'playing.dart' show NowPlayingPage;
+
+/// Row heights the library's pinch and double-tap zoom cycle through.
+///
+/// Kept here rather than in the list so the list remains a generic scrolling
+/// primitive: it owns the gesture and the snap, the library owns what its rows
+/// do at each stage.
+const List<double> kLibraryRowHeights = [38.0, 64.0, 90.0, 118.0];
 
 enum LibrarySort {
   titleAsc('Title A–Z'),
@@ -79,25 +90,21 @@ Route<void> nowPlayingRoute() {
   return PageRouteBuilder<void>(
     fullscreenDialog: true,
     opaque: true,
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 360),
+    transitionDuration: const Duration(milliseconds: 300),
+    reverseTransitionDuration: const Duration(milliseconds: 260),
     pageBuilder: (context, animation, secondaryAnimation) =>
         const NowPlayingPage(),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeInOutCubic,
+      // Reduced motion: the shared elements have nowhere to fly, so the page
+      // swaps directly rather than fading over a stalled hero.
+      if (MediaQuery.disableAnimationsOf(context)) return child;
+      final curved = animation.drive(
+        CurveTween(curve: const FathomSpringCurve()),
       );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.08),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
+      // Only the page fades. The art and the words travel through their own
+      // heroes, so a slide here would move the destination out from under
+      // them for the whole flight.
+      return FadeTransition(opacity: curved, child: child);
     },
   );
 }
@@ -107,11 +114,11 @@ Future<void> chooseSortBottomSheet(
   Color accent,
   LibrarySort currentSort,
 ) async {
-  FocusScope.of(context).unfocus();
   final picked = await showModalBottomSheet<LibrarySort>(
     context: context,
     backgroundColor: Colors.transparent,
     barrierColor: FathomColors.scrim,
+    sheetAnimationStyle: kModalMotion,
     builder: (ctx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -130,11 +137,11 @@ Future<void> chooseSortBottomSheet(
 }
 
 class LibraryPage extends StatefulWidget {
-  const LibraryPage({super.key, required this.heroFromPanel});
+  const LibraryPage({super.key, required this.selection});
 
-  /// Coordinates the now-playing hero with the mini player above; owned by
-  /// the shell and handed to both sides.
-  final ValueNotifier<bool> heroFromPanel;
+  /// The shell's selection mode. The header and the rows read the same
+  /// controller so a row tap and the contextual title cannot disagree.
+  final FathomSelection selection;
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
@@ -148,7 +155,13 @@ class _LibraryPageState extends State<LibraryPage> {
   /// service would only refuse anyway.
   final Set<String> _fetching = <String>{};
 
-  List<FathomTrack>? _sortedSource;
+  /// Whether yt results have been loaded for the current query.
+  bool _ytLoaded = false;
+
+  /// Memo key for the sorted list. The source is only re-keyed when the
+  /// library publishes a new revision, and only re-sorted when the sort mode
+  /// changes — an unrelated rebuild (accent, keyboard, settings) reuses both.
+  int _sortedRevision = -1;
   LibrarySort? _sortedWith;
   List<FathomTrack> _sortedList = const [];
   Map<int, String> _haystacks = const {};
@@ -156,6 +169,32 @@ class _LibraryPageState extends State<LibraryPage> {
   List<FathomTrack>? _resultSortedFrom;
   String? _resultQuery;
   List<FathomTrack> _result = const [];
+
+  /// The local results merged with the current remote ones, memoised by the
+  /// two input lists. A build that changes neither gets the same list instance,
+  /// so `StyledListView` can see that the row set is unchanged.
+  List<FathomTrack>? _mergedLocal;
+  List<FathomTrack>? _mergedRemote;
+  List<FathomTrack> _merged = const [];
+
+  /// Row widgets keyed by track identity, so a scan that leaves a row's data
+  /// alone leaves its element alone. A row is only rebuilt when its track
+  /// object changes (the library reuses the old instance when metadata is
+  /// unchanged) or its fetch state changes.
+  final Map<LibraryTrackKey, _CachedRow> _rowCache = {};
+  double? _rowHeight;
+
+  /// The palette the cached rows were built against.
+  ///
+  /// `FathomColors` is a set of statics, not an inherited widget: a theme or
+  /// scheme change repaints from the root but does not make a cached row
+  /// rebuild itself. Clearing when either changes is what keeps a cached row
+  /// from wearing the previous theme's text colors.
+  Object? _rowPalette;
+
+  /// The list the current row callbacks act on. Kept because a cached row's
+  /// tap cannot capture a build-time list without pinning this build's data.
+  List<FathomTrack> _currentTracks = const [];
 
   /// Remote results for the current query. They tail the device matches so
   /// one field searches both collections without a second screen.
@@ -190,6 +229,8 @@ class _LibraryPageState extends State<LibraryPage> {
   @override
   void initState() {
     super.initState();
+    widget.selection.addListener(_onSelectionChanged);
+    _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<FathomLibrary>().load(grantIfMissing: false);
@@ -200,32 +241,114 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   @override
+  void didUpdateWidget(covariant LibraryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.selection, widget.selection)) {
+      oldWidget.selection.removeListener(_onSelectionChanged);
+      widget.selection.addListener(_onSelectionChanged);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.selection.removeListener(_onSelectionChanged);
     _query?.removeListener(_onQueryChanged);
     _ytDebounce?.cancel();
     unawaited(_ytSub?.cancel());
+    _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
   }
 
+  /// Repaints only the rows and list chrome that show selection state.
+  ///
+  /// The row cache compares these flags, so a selection change rebuilds the
+  /// affected rows and leaves every untouched row's widget alone.
+  void _onSelectionChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _onQueryChanged() {
+    // A selection describes the list the user was looking at. Editing the
+    // query replaces that list, so the mode is dropped before the remote half
+    // is reset. Entering selection mode itself does not change the query.
+    if (widget.selection.active) widget.selection.exit();
+
+    // Cached remote rows belong to the query that produced them; keeping them
+    // across keystrokes would accumulate a dead result set per search. Local
+    // rows are kept: they are what a stable scroll position is made of.
+    _rowCache.removeWhere(
+      (_, row) => row.track.origin == TrackOrigin.ytMusic,
+    );
     final query = context.read<FathomSearch>().query.value.trim();
     _ytDebounce?.cancel();
     if (query.isEmpty) {
       _ytToken++;
       unawaited(_ytSub?.cancel());
       _ytSub = null;
+      _ytLoaded = false;
+      if (_ytResults.isNotEmpty || _ytSearching || _ytError != null) {
+        setState(() {
+          _ytResults = const [];
+          _ytSearching = false;
+          _ytError = null;
+        });
+      } else {
+        _ytResults = const [];
+        _ytSearching = false;
+        _ytError = null;
+      }
+      return;
+    }
+    _ytToken++;
+    unawaited(_ytSub?.cancel());
+    _ytSub = null;
+    _ytLoaded = false;
+    setState(() {
       _ytResults = const [];
       _ytSearching = false;
       _ytError = null;
-      return;
-    }
+    });
+
+    // A keystroke is not a search yet. The native extractor resolves a whole
+    // page in one call, so firing on every character both wastes requests and
+    // arrives with the token of a query the user has already moved past. One
+    // pause is the whole debounce; the field below the list keeps showing the
+    // device matches meanwhile.
+    _ytDebounce?.cancel();
     _ytDebounce = Timer(const Duration(milliseconds: 350), () {
-      unawaited(_runSearch(query));
+      _ytDebounce = null;
+      if (!mounted) return;
+      final current = context.read<FathomSearch>().query.value.trim();
+      if (current.isEmpty || _ytSearching) return;
+      _ytLoaded = true;
+      unawaited(_runSearch(current));
     });
   }
 
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.maxScrollExtent <= 0) {
+      // Not scrollable yet; try to load if conditions met
+      _maybeLoadYtOnScroll();
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _maybeLoadYtOnScroll();
+    }
+  }
+
+  void _maybeLoadYtOnScroll() {
+    if (_ytLoaded || _ytSearching) return;
+    final query = context.read<FathomSearch>().query.value.trim();
+    if (query.isEmpty) return;
+    _ytLoaded = true;
+    _runSearch(query);
+  }
+
   Future<void> _runSearch(String query) async {
+    final token = ++_ytToken;
     final downloads = context.read<FathomDownloads>();
     final source = downloads.source;
     final thrifty =
@@ -233,19 +356,24 @@ class _LibraryPageState extends State<LibraryPage> {
 
     if (!source.isReady) {
       await source.retry();
-      if (!mounted) return;
+      if (!mounted || token != _ytToken) return;
       if (!source.isReady) {
         setState(() => _ytError = source.error ?? 'YouTube Music is down');
         return;
       }
     }
 
-    final token = ++_ytToken;
-    setState(() {
+    if (mounted) {
+      setState(() {
+        _ytError = null;
+        _ytSearching = true;
+        _ytResults = const [];
+      });
+    } else {
       _ytError = null;
       _ytSearching = true;
       _ytResults = const [];
-    });
+    }
 
     final collected = <FathomTrack>[];
     final seen = <String>{};
@@ -263,7 +391,13 @@ class _LibraryPageState extends State<LibraryPage> {
         // Already on the device: it arrives with the local matches instead.
         if (downloads.isDone(item.videoId)) return;
         collected.add(FathomTrack.yt(item));
-        setState(() => _ytResults = List.of(collected));
+        if (mounted && token == _ytToken) {
+          // A fresh snapshot, not the growing buffer: the merge below compares
+          // list identity, so reusing `collected` would freeze the remote half
+          // at its first row whenever the device half matched too.
+          setState(
+              () => _ytResults = List<FathomTrack>.unmodifiable(collected));
+        }
       },
       onError: (Object error) {
         if (token != _ytToken) return;
@@ -286,14 +420,19 @@ class _LibraryPageState extends State<LibraryPage> {
 
   List<FathomTrack> _visibleTracks(
     List<FathomTrack> source,
+    int revision,
     LibrarySort sort,
     String rawQuery,
   ) {
-    if (!identical(source, _sortedSource)) {
+    // The revision is the library's "the content changed" signal. Using it
+    // rather than list identity keeps this honest: a scan that changes only a
+    // title publishes a new snapshot but the same identities, and the old
+    // identity check would have skipped the re-sort.
+    if (_sortedRevision != revision) {
       _haystacks = {
         for (final t in source) t.id: '${t.title} ${t.artist}'.toLowerCase(),
       };
-      _sortedSource = source;
+      _sortedRevision = revision;
       _sortedWith = null;
     }
 
@@ -320,6 +459,21 @@ class _LibraryPageState extends State<LibraryPage> {
     }).toList(growable: false);
   }
 
+  /// Merges the two search halves only when either half actually changed.
+  List<FathomTrack> _mergeRemote(
+    List<FathomTrack> local,
+    List<FathomTrack> remote,
+  ) {
+    if (remote.isEmpty) return local;
+    if (local.isEmpty) return remote;
+    if (identical(local, _mergedLocal) && identical(remote, _mergedRemote)) {
+      return _merged;
+    }
+    _mergedLocal = local;
+    _mergedRemote = remote;
+    return _merged = <FathomTrack>[...local, ...remote];
+  }
+
   /// Fetches a remote search result, which is all a tap on one can mean.
   ///
   /// Playing it is a second tap, once the file exists: a remote item carries no
@@ -342,26 +496,111 @@ class _LibraryPageState extends State<LibraryPage> {
   void _play(List<FathomTrack> tracks, int index) {
     final player = context.read<FathomPlayer>();
     final navigator = Navigator.of(context);
-    // Captured before the frame the route push starts, because the report has
-    // to be raised through a notifier that outlives this page: the page is a
-    // shell destination and may already be gone by the time the play fails.
-    final toasts = context.read<FathomToasts>();
     final started = player.playFrom(tracks, index);
     navigator.push(nowPlayingRoute());
     started.then((ok) {
-      // A remote track can lose its address between search and play; the
-      // player remembers why, and dropping the route silently would leave the
-      // person staring at a paused player with no explanation.
       if (ok || !navigator.mounted) return;
-      navigator.maybePop();
-      final reason = player.lastError;
-      toasts.show(
-        'Could not play this track',
-        detail: reason.isEmpty ? null : reason,
-        icon: TablerIcons.alertTriangle,
-        tone: ToastTone.failure,
-      );
+      try {
+        navigator.maybePop();
+      } catch (_) {}
     });
+  }
+
+  /// What a tap on a row means.
+  ///
+  /// A remote result has no audio to play, so its tap fetches it instead; it
+  /// becomes a playable device track the moment the file lands and the list
+  /// rescans, and the *next* tap plays it. The long-press menu keeps the honest
+  /// names for both.
+  void _activate(FathomTrack track) {
+    // While selecting, a row tap belongs to the selection, not playback. A
+    // remote result has no file a batch action could touch, so it is inert
+    // rather than starting a download behind the selection UI.
+    if (widget.selection.active) {
+      widget.selection.toggle(track);
+      return;
+    }
+    if (track.origin == TrackOrigin.device) {
+      _playTrack(track);
+    } else {
+      unawaited(_fetch(track));
+    }
+  }
+
+  /// Plays [track] in the context of the list currently on screen.
+  ///
+  /// The index is resolved at tap time rather than captured per build: row
+  /// widgets are cached across builds, and a cached closure cannot hold a list
+  /// from an older query without playing the wrong context.
+  void _playTrack(FathomTrack track) {
+    final tracks = _currentTracks;
+    final index = tracks.indexOf(track);
+    if (index < 0) return;
+    _play(tracks, index);
+  }
+
+  Key _rowKeyFor(FathomTrack track) =>
+      ValueKey<LibraryTrackKey>(libraryTrackKey(track));
+
+  /// The row widget for [track] at [height], reused when nothing it renders has
+  /// changed.
+  ///
+  /// The library's reconciler hands back the same [FathomTrack] instance when a
+  /// scan leaves its metadata alone, so object identity is a sufficient "this
+  /// row's data is unchanged" token. The only other input is the fetch flag.
+  /// Height is not part of the cache because the list animates it; any change
+  /// clears the cache, and once the resize settles the rows are cached again.
+  Widget _row(FathomTrack track, double height) {
+    final palette = FathomColors.brightness;
+    if (_rowHeight != height || _rowPalette != palette) {
+      _rowCache.clear();
+      _rowHeight = height;
+      _rowPalette = palette;
+    }
+    final key = libraryTrackKey(track);
+    final fetching = track.videoId != null && _fetching.contains(track.videoId);
+    final selecting = widget.selection.active;
+    final selected = widget.selection.isSelected(track);
+    final cached = _rowCache[key];
+    if (cached != null &&
+        identical(cached.track, track) &&
+        cached.fetching == fetching &&
+        cached.selecting == selecting &&
+        cached.selected == selected) {
+      return cached.widget;
+    }
+    final row = TrackTile(
+      track: track,
+      height: height,
+      fetching: fetching,
+      selecting: selecting,
+      selected: selected,
+      onTap: () => _activate(track),
+      onLongPress: () {
+        // Standard selection behaviour: a long press on a device row enters
+        // selection mode with that row already chosen. While the mode is on it
+        // toggles the row, so the gesture stays useful for adjusting a set.
+        // A remote item has no file a batch action could touch, so its long
+        // press keeps the per-track menu that can download it.
+        if (track.origin == TrackOrigin.device) {
+          widget.selection.toggle(track);
+          return;
+        }
+        showTrackActions(
+          context,
+          track,
+          onPlay: () => _playTrack(track),
+        );
+      },
+    );
+    _rowCache[key] = _CachedRow(
+      track,
+      fetching,
+      selecting,
+      selected,
+      row,
+    );
+    return row;
   }
 
   Widget _stateView(
@@ -416,8 +655,12 @@ class _LibraryPageState extends State<LibraryPage> {
     final search = context.read<FathomSearch>();
     final status =
         context.select<FathomLibrary, FathomLibraryStatus>((l) => l.status);
-    final source =
-        context.select<FathomLibrary, List<FathomTrack>>((l) => l.tracks);
+    // The revision is the page's wake-up signal; the list itself is read
+    // without a selector because `tracks` is a snapshot whose elements compare
+    // by identity alone, which would miss a metadata-only rescan.
+    final revision = context.select<FathomLibrary, int>((l) => l.revision);
+    final library = context.read<FathomLibrary>();
+    final source = library.tracks;
     final accent = context.select<FathomSettings, Color>((s) => s.accent);
     final sortIndex = context.select<FathomSettings, int>(
       (s) => s.get<int>(SettingKey.sortIndex),
@@ -432,13 +675,14 @@ class _LibraryPageState extends State<LibraryPage> {
       builder: (context, query, _) {
         final ready = status == FathomLibraryStatus.ready;
         final searching = query.trim().isNotEmpty;
-        final local =
-            ready ? _visibleTracks(source, sort, query) : const <FathomTrack>[];
+        final local = ready
+            ? _visibleTracks(source, revision, sort, query)
+            : const <FathomTrack>[];
         // Remote results tail the local ones so one field searches both
         // collections. They are a list of things to *get*, not a second half of
         // a play queue: only a downloaded file can play.
-        final tracks =
-            searching ? <FathomTrack>[...local, ..._ytResults] : local;
+        final tracks = searching ? _mergeRemote(local, _ytResults) : local;
+        _currentTracks = tracks;
         final showsList = tracks.isNotEmpty;
 
         String? sectionFor(int i) =>
@@ -460,32 +704,36 @@ class _LibraryPageState extends State<LibraryPage> {
                 scrollController: _scroll,
                 items: tracks,
                 accent: accent,
+                zoomStages: kLibraryRowHeights,
+                initialItemHeight: 90.0,
+                minItemHeight: kLibraryRowHeights.first,
+                maxItemHeight: kLibraryRowHeights.last,
                 bottomInset: viewPadding.bottom + 150,
                 sectionFor: sectionFor,
                 labelFor: (i) => _labelFor(tracks, sort, i),
-                itemBuilder: (context, track, i, height) => TrackTile(
-                  heroFromPanel: widget.heroFromPanel,
-                  track: track,
-                  height: height,
-                  // A remote result has no audio to play, so its tap fetches it
-                  // instead; it becomes a playable device track the moment the
-                  // file lands and the list rescans, and the *next* tap plays
-                  // it. The long-press menu keeps the honest names for both.
-                  onTap: () => track.origin == TrackOrigin.device
-                      ? _play(tracks, i)
-                      : _fetch(track),
-                  fetching: track.videoId != null &&
-                      _fetching.contains(track.videoId),
-                  onLongPress: () => showTrackActions(
-                    context,
-                    track,
-                    onPlay: () => _play(tracks, i),
-                  ),
-                ),
+                keyFor: (i) => _rowKeyFor(tracks[i]),
+                itemBuilder: (context, track, i, height) => _row(track, height),
               );
       },
     );
   }
+}
+
+/// One cached row widget, with the inputs that can invalidate it.
+class _CachedRow {
+  const _CachedRow(
+    this.track,
+    this.fetching,
+    this.selecting,
+    this.selected,
+    this.widget,
+  );
+
+  final FathomTrack track;
+  final bool fetching;
+  final bool selecting;
+  final bool selected;
+  final Widget widget;
 }
 
 class TrackTile extends StatelessWidget {
@@ -494,18 +742,15 @@ class TrackTile extends StatelessWidget {
     required this.track,
     required this.height,
     required this.onTap,
-    this.heroFromPanel,
     this.onLongPress,
     this.fetching = false,
+    this.selecting = false,
+    this.selected = false,
   });
 
   final FathomTrack track;
   final double height;
   final VoidCallback onTap;
-
-  /// Coordinates the now-playing hero with the mini player above. Surfaces
-  /// that do not take part in the hero pass null.
-  final ValueNotifier<bool>? heroFromPanel;
 
   /// The library's per-track action sheet; surfaces that keep their rows
   /// simple pass null.
@@ -515,6 +760,14 @@ class TrackTile extends StatelessWidget {
   /// the fetch in flight rather than looking inert.
   final bool fetching;
 
+  /// Whether the library is in multi-select mode. Selection is a library mode,
+  /// not a per-row one, so this is false on every surface that has no batch
+  /// actions to offer.
+  final bool selecting;
+
+  /// Whether this row's device track is in the current selection.
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     final accent = context.select<FathomSettings, Color>((s) => s.accent);
@@ -522,46 +775,50 @@ class TrackTile extends StatelessWidget {
       (p) => p.currentTrack?.id == track.id,
     );
     final library = context.read<FathomLibrary>();
-    // A download becomes a device track the moment it lands, so the badge has
-    // to answer for both: by row for a device track, by videoId for one that
-    // is still remote.
-    final downloaded = context.select<FathomDownloads, bool>(
-      (d) => track.videoId != null
-          ? d.isDone(track.videoId)
-          : d.isDownloadedDeviceTrack(track.id),
-    );
     // Only a device track can play; a remote row's tap fetches it, and the row
     // says so rather than offering a play that would fail.
     final playable = track.origin == TrackOrigin.device;
+    final zoom = StyledListZoom.maybeOf(context);
 
-    final compact = height <= 48.0;
-    final artSize = (height - 12.0).clamp(24.0, 68.0);
-    final indicatorHeight = compact ? 14.0 : artSize - 8.0;
+    // One continuous ramp across the whole zoom ladder. Nothing here switches
+    // layout at a height threshold: a pinch that stops between stages still
+    // paints a row that matches the extent it was given.
+    final t = ((height - kLibraryRowHeights.first) /
+            (kLibraryRowHeights.last - kLibraryRowHeights.first))
+        .clamp(0.0, 1.0);
+    final artSize = lerpDouble(24, 92, t)!;
+    final artRadius = lerpDouble(6, 22, t)!;
+    final indicatorHeight = (artSize - 8).clamp(14.0, 84.0).toDouble();
+    final titleSize = lerpDouble(14, 18, t)!;
+    final artistSize = lerpDouble(10.5, 13, t)!;
+    final titleHeight = lerpDouble(1.0, 1.2, t)!;
+    final artistHeight = lerpDouble(1.0, 1.15, t)!;
+    final gap = lerpDouble(2, 4, t)!;
+    final artGap = lerpDouble(10, 14, t)!;
+    final leftPadding = lerpDouble(16, 20, t)!;
+    final rightPadding = lerpDouble(12, 16, t)!;
 
     final titleStyle = TextStyle(
-      fontSize: compact ? 15 : 16,
-      height: compact ? 1.0 : 1.2,
+      fontSize: titleSize,
+      height: titleHeight,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       color: isPlaying ? accent : FathomColors.onSurface,
     );
     final artistStyle = TextStyle(
-      fontSize: compact ? 12.5 : 12,
-      height: compact ? 1.0 : 1.15,
-      color: FathomColors.onSurface.withValues(alpha: compact ? 0.45 : 0.5),
+      fontSize: artistSize,
+      height: artistHeight,
+      color: FathomColors.onSurface.withValues(
+        alpha: lerpDouble(0.45, 0.5, t)!,
+      ),
     );
 
-    final title = Text(
-      track.title,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: titleStyle,
-    );
-    final artist = Text(
-      track.artist,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: artistStyle,
+    final morph = TrackTextMorph(
+      title: track.title,
+      artist: track.artist,
+      titleStyle: titleStyle,
+      artistStyle: artistStyle,
+      gap: gap,
     );
 
     return Material(
@@ -570,94 +827,96 @@ class TrackTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            InkWell(
-              onTap: () {
-                heroFromPanel?.value = compact;
-                onTap();
-              },
-              onLongPress: onLongPress,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: compact ? 16 : 20,
-                  right: compact ? 12 : 16,
-                ),
-                child: Row(
-                  children: [
-                    if (!compact) ...[
-                      if (heroFromPanel == null)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected
+                    ? accent.withValues(alpha: 0.10)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                onTap: onTap,
+                // A double-tap recognizer holds the single tap for its
+                // timeout. In selection mode every tap is a selection toggle,
+                // so the zoom gesture is removed and the row answers on the
+                // tap itself instead of 300ms later.
+                onDoubleTap: selecting ? null : zoom?.onDoubleTap,
+                onLongPress: onLongPress,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: leftPadding,
+                    right: rightPadding,
+                  ),
+                  child: Row(
+                    children: [
+                      // Only a device track can play, so only a device row
+                      // advertises the cover and text tags: a remote result
+                      // fetches on tap and never opens Now Playing.
+                      if (playable)
+                        Hero(
+                          tag: 'fathom-art-${track.id}',
+                          child: TrackArt(
+                            library: library,
+                            track: track,
+                            size: artSize,
+                            radius: artRadius,
+                          ),
+                        )
+                      else
                         TrackArt(
                           library: library,
                           track: track,
                           size: artSize,
-                          radius: artSize > 42 ? 18 : 6,
-                        )
-                      else
-                        ValueListenableBuilder<bool>(
-                          valueListenable: heroFromPanel!,
-                          builder: (context, fromPanel, child) =>
-                              HeroMode(enabled: !fromPanel, child: child!),
-                          child: Hero(
-                            tag: 'fathom-art-${track.id}',
-                            child: TrackArt(
-                              library: library,
-                              track: track,
-                              size: artSize,
-                              radius: artSize > 42 ? 18 : 6,
-                            ),
-                          ),
+                          radius: artRadius,
                         ),
-                      const SizedBox(width: 14),
-                    ],
-                    Expanded(
-                      child: compact
-                          ? Row(
-                              children: [
-                                Expanded(child: title),
-                                const SizedBox(width: 14),
-                                ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 120),
-                                  child: artist,
-                                ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                title,
-                                const SizedBox(height: 4),
-                                artist,
-                              ],
-                            ),
-                    ),
-                    if (downloaded) ...[
-                      const SizedBox(width: 10),
-                      Icon(
-                        TablerIcons.cloudCheck,
-                        size: compact ? 13 : 15,
-                        color: FathomColors.onSurface.withValues(alpha: 0.3),
+                      SizedBox(width: artGap),
+                      Expanded(
+                        child: playable
+                            ? Hero(
+                                tag: 'fathom-text-${track.id}',
+                                flightShuttleBuilder: trackTextHeroShuttle,
+                                child: morph,
+                              )
+                            : morph,
                       ),
-                    ] else if (!playable) ...[
-                      const SizedBox(width: 10),
-                      if (fetching)
-                        SizedBox(
-                          width: compact ? 13 : 15,
-                          height: compact ? 13 : 15,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.6,
-                            color: accent,
+                      if (!playable) ...[
+                        const SizedBox(width: 10),
+                        if (fetching)
+                          SizedBox(
+                            width: lerpDouble(13, 15, t),
+                            height: lerpDouble(13, 15, t),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.6,
+                              color: accent,
+                            ),
+                          )
+                        else
+                          Icon(
+                            TablerIcons.cloudDownload,
+                            size: lerpDouble(13, 15, t),
+                            color:
+                                FathomColors.onSurface.withValues(alpha: 0.35),
                           ),
-                        )
-                      else
+                      ],
+                      // Only device rows can enter a batch action, so only
+                      // they show a selection affordance. The check is the
+                      // trailing control of the row; the playing bar stays on
+                      // the leading edge.
+                      if (selecting && playable) ...[
+                        const SizedBox(width: 8),
                         Icon(
-                          TablerIcons.cloudDownload,
-                          size: compact ? 13 : 15,
-                          color: FathomColors.onSurface.withValues(alpha: 0.35),
+                          selected
+                              ? TablerIcons.circleCheckFilled
+                              : TablerIcons.circle,
+                          size: lerpDouble(18, 22, t),
+                          color: selected
+                              ? accent
+                              : FathomColors.onSurface.withValues(alpha: 0.30),
                         ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

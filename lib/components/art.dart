@@ -55,16 +55,22 @@ class ArtThumb extends StatelessWidget {
     required this.id,
     required this.artwork,
     required this.size,
+    this.initialBytes,
     this.radius = kArtRadius,
   });
 
   final int id;
   final Future<Uint8List?> artwork;
+  final Uint8List? initialBytes;
   final double size;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
+    final initial = initialBytes;
+    if (initial != null) {
+      return _ArtImage(bytes: initial, size: size, radius: radius);
+    }
     return FutureBuilder<Uint8List?>(
       future: artwork,
       builder: (context, snapshot) {
@@ -72,18 +78,45 @@ class ArtThumb extends StatelessWidget {
         if (bytes == null) {
           return FallbackArt(size: size, radius: radius);
         }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Image.memory(
-            bytes,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.low,
-            gaplessPlayback: true,
-          ),
-        );
+        return _ArtImage(bytes: bytes, size: size, radius: radius);
       },
+    );
+  }
+}
+
+class _ArtImage extends StatelessWidget {
+  const _ArtImage({
+    required this.bytes,
+    required this.size,
+    required this.radius,
+  });
+
+  final Uint8List bytes;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    // Decode at the size the row actually paints. Album artwork is often
+    // 1000px wide, and decoding it at full resolution for a 48px tile costs
+    // several megabytes and a visible decode stall; the cache key below makes
+    // every reader of the same track share one correctly sized image.
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    final target = (size * ratio).round();
+    final cacheSize = target > 0 && size.isFinite ? target : null;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.memory(
+        bytes,
+        width: size,
+        height: size,
+        cacheWidth: cacheSize,
+        cacheHeight: cacheSize,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.low,
+        gaplessPlayback: true,
+      ),
     );
   }
 }
@@ -130,6 +163,10 @@ class _RemoteArtState extends State<RemoteArt> {
 
   @override
   Widget build(BuildContext context) {
+    final cached = FathomArtCache.instance.cachedForVideo(widget.videoId);
+    if (cached != null) {
+      return _ArtImage(bytes: cached, size: widget.size, radius: widget.radius);
+    }
     return FutureBuilder<Uint8List?>(
       future: _bytes,
       builder: (context, snapshot) {
@@ -137,16 +174,10 @@ class _RemoteArtState extends State<RemoteArt> {
         if (bytes == null) {
           return FallbackArt(size: widget.size, radius: widget.radius);
         }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(widget.radius),
-          child: Image.memory(
-            bytes,
-            width: widget.size,
-            height: widget.size,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.low,
-            gaplessPlayback: true,
-          ),
+        return _ArtImage(
+          bytes: bytes,
+          size: widget.size,
+          radius: widget.radius,
         );
       },
     );
@@ -175,6 +206,7 @@ class TrackArt extends StatelessWidget {
       TrackOrigin.device => ArtThumb(
           id: track.id,
           artwork: library.artFor(track.id),
+          initialBytes: library.cachedArtFor(track.id),
           size: size,
           radius: radius,
         ),

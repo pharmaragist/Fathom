@@ -14,6 +14,19 @@ const _row320 = 'https://i.ytimg.com/vi/abc/mqdefault.jpg=w320-h320-l90-rj';
 const _art1280 =
     'https://i.ytimg.com/vi/abc/maxresdefault.jpg=w1280-h720-l90-rj';
 
+/// The plain ytimg presets, which carry their size only in the file name.
+///
+/// This is the shape that produced the broken cover: no `=w` suffix, so the
+/// old reader called the width unknown and the picker took the first entry.
+const _defaultPreset = 'https://i.ytimg.com/vi/abc/default.jpg';
+const _mqPreset = 'https://i.ytimg.com/vi/abc/mqdefault.jpg';
+const _hqPreset = 'https://i.ytimg.com/vi/abc/hqdefault.jpg';
+const _sdPreset = 'https://i.ytimg.com/vi/abc/sddefault.jpg';
+const _maxresPreset = 'https://i.ytimg.com/vi/abc/maxresdefault.jpg';
+const _hq720Preset = 'https://i.ytimg.com/vi/abc/hq720.jpg?sqp=xyz&rs=abc';
+const _webpMaxPreset = 'https://i.ytimg.com/vi_webp/abc/maxresdefault.webp';
+const _unknown = 'https://i.ytimg.com/vi/abc/not-a-known-preset.jpg';
+
 void main() {
   group('thumbWidthOf', () {
     test('reads the width the URL encodes', () {
@@ -22,8 +35,37 @@ void main() {
       expect(thumbWidthOf(_art1280), 1280);
     });
 
+    test('reads ytimg file-name presets', () {
+      // A youtube thumbnail URL usually has no rewrite suffix at all, so the
+      // file name is the only description of its size. Before this was read,
+      // every ytimg URL looked unreadable and picking fell back to position.
+      expect(thumbWidthOf(_maxresPreset), 1280);
+      expect(thumbWidthOf(_hq720Preset), 1280);
+      expect(thumbWidthOf(_webpMaxPreset), 1280);
+      expect(thumbWidthOf(_sdPreset), 640);
+      expect(thumbWidthOf(_hqPreset), 480);
+      expect(thumbWidthOf(_mqPreset), 320);
+      expect(thumbWidthOf(_defaultPreset), 120);
+
+      for (final name in ['hq1', 'hq2', 'hq3', '1', '2', '3']) {
+        expect(
+          thumbWidthOf('https://i.ytimg.com/vi/abc/$name.jpg'),
+          120,
+          reason: '$name is one of the small player squares',
+        );
+      }
+    });
+
+    test('prefers an explicit rewrite over the file name', () {
+      // The file name describes the original image; the suffix describes the
+      // size actually being requested. When both exist the suffix is the truth.
+      expect(thumbWidthOf('https://i.ytimg.com/vi/abc/maxresdefault.jpg=w320'),
+          320);
+    });
+
     test('reports null when the URL does not say', () {
-      expect(thumbWidthOf('https://i.ytimg.com/vi/abc/default.jpg'), isNull);
+      expect(thumbWidthOf(_unknown), isNull);
+      expect(thumbWidthOf('https://example.invalid/cover.jpg'), isNull);
       expect(thumbWidthOf(''), isNull);
     });
   });
@@ -38,6 +80,28 @@ void main() {
       expect(pickThumbnail(urls, maxWidth: kThumbRowMaxWidth), _row320);
       expect(pickThumbnail(urls, maxWidth: kThumbArtMaxWidth), _art1280);
       expect(pickThumbnail(urls, maxWidth: kThumbThriftyMaxWidth), _row120);
+    });
+
+    test('picks the real cover art from plain ytimg presets', () {
+      // This is the reported failure: a list of presets used to have no
+      // readable widths, so the first URL won and a 120px square was embedded
+      // as the file's cover.
+      final urls = [_defaultPreset, _mqPreset, _hqPreset, _maxresPreset];
+
+      expect(pickThumbnail(urls, maxWidth: kThumbArtMaxWidth), _maxresPreset);
+      // A row can take 320 exactly, so mqdefault wins; when it is absent the
+      // smallest above-cap preset is still better than no image.
+      expect(pickThumbnail(urls, maxWidth: kThumbRowMaxWidth), _mqPreset);
+      // Without a size at or below the cap the smallest available preset wins,
+      // so hqdefault stands in for a row when mqdefault is missing.
+      expect(
+        pickThumbnail([_hqPreset, _maxresPreset], maxWidth: kThumbRowMaxWidth),
+        _hqPreset,
+      );
+      expect(
+        pickThumbnail(urls, maxWidth: kThumbThriftyMaxWidth),
+        _defaultPreset,
+      );
     });
 
     test('does not depend on the list order the extractor returns', () {
@@ -63,16 +127,47 @@ void main() {
 
     test('falls back to an unreadable URL only when nothing else is usable',
         () {
-      const noSize = 'https://i.ytimg.com/vi/abc/default.jpg';
-
       // A readable size always wins, whatever order it arrives in.
-      expect(pickThumbnail([noSize, _row320], maxWidth: 320), _row320);
-      expect(pickThumbnail([noSize], maxWidth: 320), noSize);
+      expect(pickThumbnail([_unknown, _row320], maxWidth: 320), _row320);
+      expect(pickThumbnail([_unknown], maxWidth: 320), _unknown);
     });
 
     test('returns null for an empty list', () {
       expect(pickThumbnail(const [], maxWidth: 320), isNull);
       expect(pickThumbnail(const [''], maxWidth: 320), isNull);
+    });
+  });
+
+  group('rankedThumbnails', () {
+    test('orders widest first', () {
+      final ranked = rankedThumbnails([
+        _defaultPreset,
+        _maxresPreset,
+        _mqPreset,
+        _hqPreset,
+      ]);
+
+      expect(ranked, [_maxresPreset, _hqPreset, _mqPreset, _defaultPreset]);
+    });
+
+    test('puts unreadable sizes last and drops duplicates', () {
+      // A cover-art download walks this list in order. A URL with no known
+      // size is worth one try at the end, never a place ahead of a real preset.
+      final ranked = rankedThumbnails([
+        _unknown,
+        _maxresPreset,
+        _maxresPreset,
+        _defaultPreset,
+        '',
+        _unknown,
+      ]);
+
+      expect(ranked, [_maxresPreset, _defaultPreset, _unknown]);
+    });
+
+    test('returns an empty list when there is nothing usable', () {
+      expect(rankedThumbnails(const []), isEmpty);
+      expect(rankedThumbnails(const ['', '']), isEmpty);
     });
   });
 
@@ -99,6 +194,15 @@ void main() {
       );
 
       expect(track.artworkUrl, _art1280);
+    });
+
+    test('picks maxresdefault from the plain ytimg presets', () {
+      final track = remote(
+        const [_defaultPreset, _mqPreset, _hqPreset, _maxresPreset],
+        thumbUri: Uri.parse(_defaultPreset),
+      );
+
+      expect(track.artworkUrl, _maxresPreset);
     });
 
     test('still resolves cover art when the search kept only a tiny URL', () {

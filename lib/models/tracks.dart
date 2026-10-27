@@ -101,6 +101,74 @@ class FathomTrack {
   final int? durationMs;
   final int? dateAdded;
 
+  /// This track as plain JSON-safe values, for the player's saved queue.
+  ///
+  /// Every field that makes a track playable is included, because a restored
+  /// queue is rebuilt from these maps before the library scan has finished:
+  /// [uri] and [origin] decide whether it can play, the rest only describe it.
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'title': title,
+        'artist': artist,
+        'uri': uri,
+        'origin': origin.name,
+        'videoId': videoId,
+        'thumbUri': thumbUri?.toString(),
+        'thumbUris': thumbUris,
+        'durationMs': durationMs,
+        'dateAdded': dateAdded,
+      };
+
+  /// Reads a track written by [toJson], or null when the map cannot name one.
+  ///
+  /// The reader is tolerant on purpose: saved state outlives a build, and an
+  /// older payload stored [origin] as an index. A missing or unknown origin
+  /// falls back to [TrackOrigin.device], which is the only origin that can ever
+  /// be in a saved queue.
+  static FathomTrack? fromJson(Object? value) {
+    if (value is! Map) return null;
+    final id = value['id'];
+    if (id is! int) return null;
+
+    final origin = switch (value['origin']) {
+      final String name => TrackOrigin.values.firstWhere(
+          (o) => o.name == name,
+          orElse: () => TrackOrigin.device,
+        ),
+      final int index => index == TrackOrigin.ytMusic.index
+          ? TrackOrigin.ytMusic
+          : TrackOrigin.device,
+      _ => TrackOrigin.device,
+    };
+
+    final title = value['title'];
+    final artist = value['artist'];
+    final uri = value['uri'];
+    final duration = value['durationMs'];
+    final added = value['dateAdded'];
+    final thumbs = value['thumbUris'];
+
+    return FathomTrack(
+      id: id,
+      title: title is String && title.isNotEmpty ? title : 'Untitled',
+      artist: artist is String && artist.isNotEmpty ? artist : 'Unknown Artist',
+      uri: uri is String ? uri : '',
+      origin: origin,
+      videoId: value['videoId'] is String ? value['videoId'] as String : null,
+      thumbUri: value['thumbUri'] is String
+          ? Uri.tryParse(value['thumbUri'] as String)
+          : null,
+      thumbUris: thumbs is List
+          ? [
+              for (final thumb in thumbs)
+                if (thumb is String) thumb
+            ]
+          : const [],
+      durationMs: duration is int ? duration : null,
+      dateAdded: added is int ? added : null,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
