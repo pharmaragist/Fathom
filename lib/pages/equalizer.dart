@@ -5,6 +5,7 @@ import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
 import '../common/constants.dart';
+import '../common/motion.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
 import '../components/flat_slider.dart';
@@ -34,6 +35,8 @@ class _EqualizerPageState extends State<EqualizerPage> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     final eqReady = context.select<FathomPlayer, bool>((p) => p.eqReady);
+    final native =
+        context.select<FathomPlayer, bool>((p) => p.usingNativeEqualizer);
     final player = context.read<FathomPlayer>();
     final settings = context.watch<FathomSettings>();
     final accent = settings.accent;
@@ -41,8 +44,15 @@ class _EqualizerPageState extends State<EqualizerPage> {
     // The shell paints the backdrop and the header above this body, so the
     // page carries only its cards. The shell's `Expanded` gives the page a
     // tight height, exactly what the bands card needs to fill.
+    //
+    // The bottom inset clears the floating panel, because the page body runs
+    // under it: without this the bands card's lower half sits behind the mini
+    // player and the rail, where its sliders cannot be dragged and the two
+    // glass surfaces end up sampling the card instead of the backdrop. The
+    // value matches the list's own inset in `LibraryPage`, so both destinations
+    // end their content at the same line.
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 24),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 150),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -50,7 +60,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
           const SizedBox(height: 12),
           Expanded(
             child: eqReady
-                ? _BandsCard(accent: accent, player: player)
+                ? _BandsCard(accent: accent, player: player, native: native)
                 : _LockedCard(accent: accent),
           ),
         ],
@@ -74,7 +84,8 @@ class _ControlsCard extends StatelessWidget {
 
     return FlatContainer(
       radius: 24,
-      borderOpacity: 0.07,
+      filled: false,
+      accent: accent,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,9 +113,10 @@ class _ControlsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            height: 0.5,
-            color: FathomColors.fillLow,
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: FathomColors.hairline,
           ),
           const SizedBox(height: 14),
           SingleChildScrollView(
@@ -191,27 +203,37 @@ class _PresetChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.20)
-              : FathomColors.fillFaint,
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            letterSpacing: -0.1,
-            color: selected
-                ? FathomColors.onSurface
-                : FathomColors.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
+      child: SpringValue(
+        value: selected ? 1.0 : 0.0,
+        spring: FathomMotion.press,
+        builder: (context, t) {
+          final grip = t.clamp(0.0, 1.0);
+          return Transform.scale(
+            scale: 1 + 0.02 * grip,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Color.lerp(
+                  FathomColors.fillFaint,
+                  accent.withValues(alpha: 0.20),
+                  grip,
+                ),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: -0.1,
+                  color: selected
+                      ? FathomColors.onSurface
+                      : FathomColors.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -280,6 +302,7 @@ Future<void> showEqPresetSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    sheetAnimationStyle: kModalMotion,
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: SafeArea(
@@ -380,6 +403,7 @@ class _PresetSheetState extends State<_PresetSheet> {
 
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: kModalMotion,
       builder: (ctx) => AlertDialog(
         backgroundColor: FathomColors.background,
         title: Text(
@@ -604,6 +628,7 @@ Future<void> showAutoEqSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    sheetAnimationStyle: kModalMotion,
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: SafeArea(
@@ -923,18 +948,22 @@ class _AutoEqRow extends StatelessWidget {
 }
 
 class _BandsCard extends StatelessWidget {
-  const _BandsCard({required this.accent, required this.player});
+  const _BandsCard({
+    required this.accent,
+    required this.player,
+    required this.native,
+  });
   final Color accent;
   final FathomPlayer player;
+  final bool native;
 
   @override
   Widget build(BuildContext context) {
-    // Both band layouts are panels in the page's layout, under opaque labels
-    // and sliders, so neither one needs to sample what is behind it.
-    if (player.usingNativeEqualizer) {
+    if (native) {
       return FlatContainer(
         radius: 24,
-        borderOpacity: 0.07,
+        filled: false,
+        accent: accent,
         padding: const EdgeInsets.fromLTRB(8, 18, 8, 20),
         child: Column(
           children: [
@@ -942,7 +971,13 @@ class _BandsCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: _PreampRow(accent: accent),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: FathomColors.hairline,
+            ),
+            const SizedBox(height: 14),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -967,7 +1002,8 @@ class _BandsCard extends StatelessWidget {
 
     return FlatContainer(
       radius: 24,
-      borderOpacity: 0.07,
+      filled: false,
+      accent: accent,
       padding: const EdgeInsets.fromLTRB(8, 24, 8, 20),
       child: FutureBuilder<AndroidEqualizerParameters?>(
         future: player.hardwareEqualizer.parameters,
@@ -1036,7 +1072,8 @@ class _LockedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return FlatContainer(
       radius: 24,
-      borderOpacity: 0.07,
+      filled: false,
+      accent: accent,
       padding: const EdgeInsets.all(32),
       child: Center(
         child: Column(
@@ -1201,44 +1238,50 @@ class _PreampRowState extends State<_PreampRow> {
     final db = _db;
     final sign = db > 0.05 ? '+' : '';
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(TablerIcons.adjustmentsHorizontal, size: 16, color: accent),
-        const SizedBox(width: 10),
-        Text(
-          'Preamp',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: FathomColors.onSurface,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: FlatSlider(
-            value: (db + _max) / (2 * _max),
-            origin: 0.5,
-            color: accent,
-            onChanged: _onChanged,
-            onChangeEnd: _onChangeEnd,
-          ),
-        ),
-        const SizedBox(width: 14),
-        SizedBox(
-          width: 40,
-          child: Text(
-            '$sign${db.toStringAsFixed(1)}',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.1,
-              fontFeatures: const [FontFeature.tabularFigures()],
-              color: db.abs() < 0.05
-                  ? FathomColors.onSurface.withValues(alpha: 0.35)
-                  : accent,
+        Row(
+          children: [
+            Icon(TablerIcons.adjustmentsHorizontal, size: 16, color: accent),
+            const SizedBox(width: 10),
+            Text(
+              'Preamp',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: FathomColors.onSurface,
+              ),
             ),
-          ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: FlatSlider(
+                value: (db + _max) / (2 * _max),
+                origin: 0.5,
+                color: accent,
+                onChanged: _onChanged,
+                onChangeEnd: _onChangeEnd,
+              ),
+            ),
+            const SizedBox(width: 14),
+            SizedBox(
+              width: 40,
+              child: Text(
+                '$sign${db.toStringAsFixed(1)}',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: db.abs() < 0.05
+                      ? FathomColors.onSurface.withValues(alpha: 0.35)
+                      : accent,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1314,7 +1357,6 @@ class _NativeBandColumnState extends State<_NativeBandColumn> {
                   : accent,
             ),
           ),
-          const SizedBox(height: 10),
           const SizedBox(height: 10),
           Expanded(
             child: FlatSlider(
