@@ -1,8 +1,8 @@
 # Fathom Agent Guide (`AGENTS.md`)
 
-This guide serves as the definitive reference for AI agents working on Fathom—a high-performance, modular Flutter music player. It details the complete architecture, data flow, state management contracts, DSP audio pipeline, and UI view hierarchies.
+Fathom: high-performance modular Flutter music player. This doc covers architecture, data flow, state contracts, DSP pipeline, UI hierarchy.
 
-Section 7 (`Known Gaps`) lists every place the code currently disagrees with this document. Treat section 7 as the work queue: those are code defects to fix, not contracts to copy.
+Section 7 (`Known Gaps`) lists every code/doc mismatch. Treat it as the work queue: defects to fix, not contracts to copy.
 
 ---
 
@@ -11,81 +11,90 @@ Section 7 (`Known Gaps`) lists every place the code currently disagrees with thi
 ```text
 lib/
 ├── main.dart                      // Entry point: Bootstrap, system UI, root providers. Exports FathomApp
-├── content.dart                   // RootShell: multi-page shell, shared chrome, page stack, toast layer, dismiss layer, BottomPanel overlay
+├── content.dart                   // RootShell: multi-page shell, shared chrome, page stack, dismiss layer, BottomPanel overlay
 ├── models/
 │   ├── tracks.dart                // Domain model: FathomTrack & TrackOrigin
 │   └── ytmusic.dart               // YtItem: one remote result, plus the shared thumbnail-selection helpers
 ├── common/
-│   ├── colors.dart                // FathomPalette (material_color_utilities tones) + FathomColors token getters, accent swatches
+│   ├── colors.dart                // FathomPalette (monochrome material_color_utilities tones), FathomColors token getters, accent swatches
 │   ├── constants.dart             // App metadata, EQ band tables, speed presets, FathomRepeatMode, formatters
 │   ├── settings.dart              // FathomSettings: unified enum-based key-value preferences store
 │   ├── search.dart                // FathomSearch: the rail's single query, shared by every surface
-│   ├── toasts.dart                // FathomToasts: the shell's in-memory transient message queue
-│   ├── library.dart               // FathomLibrary: storage permission handling, media querying, art caching
-│   └── player.dart                // FathomPlayer: just_audio engine, queue management, palette extraction
+│   ├── selection.dart             // FathomSelection: in-memory device-track selection for batch delete
+│   ├── library.dart               // FathomLibrary: storage permission handling, media querying, snapshot + art caching
+│   ├── library_diff.dart          // Pure scan reconciliation: stable track keys, added/removed/moved/updated delta
+│   ├── motion.dart                // FathomSpring, FathomMotion presets, FathomSpringCurve, SpringValue
+│   └── player.dart                // FathomPlayer: just_audio engine, queue management, state restore
 ├── services/
 │   ├── audio.dart                 // FathomAudioSession & FathomAudioHandler (audio_service lockscreen controls)
 │   ├── equalizer.dart             // FathomNativeEqualizer: MethodChannel bridge to the native ten band stage
 │   ├── autoeq.dart                // FathomAutoEq: AutoEQ catalogue index and ten band result fetch/parse
 │   ├── yt_source.dart             // FathomYtSource contract + FathomYtMusic, the remote *fetcher* (no streaming)
 │   ├── downloads.dart             // FathomDownloads: remote audio fetch, MediaStore filing, download manifest
-│   ├── power.dart                 // FathomPowerState: Android Battery Saver state, reported live
+│   ├── power.dart                 // FathomPowerState: Android Battery Saver state and battery-optimization exemption, reported live
+│   ├── fonts.dart                 // FathomFonts: Google Fonts catalogue, on-demand TTF download and FontLoader registration
 │   └── artwork.dart               // FathomArtCache: remote artwork bytes, keyed by videoId
 ├── panels/
 │   ├── bottom_panel.dart          // FloatingIslandPlayer: compact player island, Now Playing push
 │   └── queue.dart                 // Drag-and-drop up-next queue drawer
 ├── pages/
+│   ├── onboarding.dart            // First-run walkthrough: feature tour, library/notification/battery permissions
 │   ├── library.dart               // Track list with alphabet scrubbing, merged search results, sort modal
-│   ├── equalizer.dart             // 10-band DSP equalizer, preset save/edit and AutoEQ import (shell destination)
+│   ├── equalizer.dart             // 10-band DSP equalizer as outline cards, preset save/edit and AutoEQ import
+│   ├── downloads.dart             // What Fathom has fetched: files on the device, work in flight, failures
 │   ├── playing.dart               // Full-screen Now Playing view with three-cover carousel & volume control
-│   └── settings.dart              // App settings interface (typography, accent swatches, gapless, data save)
+│   └── settings.dart              // App settings as sticky outline sections (typography, fonts, accents, AMOLED, gapless, data save)
 └── components/                    // UI primitives, one widget family per file
     ├── art.dart                   // ArtThumb, RemoteArt, TrackArt and the trackArtBytes helper
     ├── shell_chrome.dart          // ShellChrome: the backdrop + header every shell page wears
-    ├── page_header.dart           // PageHeader, shellTrailing, and the settings route builder
+    ├── page_header.dart           // PageHeader, shellTrailing, and the settings/downloads route builders
     ├── backdrop.dart              // AmbientBackdrop: top-aligned radial gradient shell layer
-    ├── toast_layer.dart           // FathomToastLayer: glass message cards below the header
-    ├── carousel.dart              // CoverCarousel: the sliding-card deck Now Playing swipes
+    ├── carousel.dart              // CoverCarousel: the sliding-card deck Now Playing swipes, publishes its offset
+    ├── track_title_deck.dart      // TrackTitleDeck: title/artist pairs sliding with the cover deck
+    ├── track_text_morph.dart      // TrackTextMorph: title/artist Hero child, library row to Now Playing
+    ├── limiter_button.dart        // LimiterButton: limiter switch with predicted gain-reduction ring
     ├── glass.dart                 // GlassContainer & FlatContainer: the frosted and flat surface primitives
+    ├── sticky_header.dart         // SliverPageHeader: pinned gradient page title; SliverSectionLabel: plain section label
     ├── flat_icon_button.dart      // FlatIconButton: minimal icon button primitive
     ├── flat_slider.dart           // FlatSlider: minimal slider primitive
-    ├── flat_switch.dart           // FlatSwitch: minimal switch primitive (settings, equalizer)
+    ├── flat_switch.dart           // FlatSwitch: display-only switch primitive; the row owns the tap
+    ├── color_seed_picker.dart     // ColorSeedPicker: HSL + hex dialog for adding a custom accent seed
     ├── track_actions.dart         // showTrackActions: per-track menu (play, play next, queue, download)
     ├── nav_rail.dart              // FloatingNavRail: bottom navigation rail
     └── styled_list_view.dart      // StyledListView: shared list & scaffolding primitive
 ```
 
-> **Import Rule**: Always use direct relative imports (e.g., `import '../common/player.dart';`). Barrel files and shared-global modules are strictly prohibited — they cause circular dependencies and dead code bloat. Cross-widget state belongs on a notifier owned by the shell or a service; the former `lib/common/states.dart` globals were removed for this reason.
+> **Import Rule**: relative imports only (e.g. `import '../common/player.dart';`). No barrel files, no shared-global modules (cycles, dead code). Cross-widget state on a notifier owned by shell or service. `lib/common/states.dart` removed for this reason.
 
 ### Platform Configuration
 
-`android/app/src/main/AndroidManifest.xml` declares the audio platform surface. Permissions are deliberate; adding one requires a documentation update here.
+`android/app/src/main/AndroidManifest.xml` declares the audio surface. New permission = new row here.
 
 | Permission | Reason |
 | --- | --- |
-| `INTERNET` | AutoEQ catalogue downloads from the equalizer page; remote search and track downloads |
-| `READ_MEDIA_AUDIO` | Media store query on Android 13+ |
+| `INTERNET` | AutoEQ, Google Fonts, remote search, downloads |
+| `READ_MEDIA_AUDIO` | Media store query Android 13+; walkthrough asks |
 | `READ_EXTERNAL_STORAGE` (`maxSdkVersion="32"`) | Media store query below Android 13 |
-| `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion="28"`) | Filing a download into the shared Music folder below API 29; requested on demand, never at startup |
-| `ACCESS_MEDIA_LOCATION` | Artwork metadata access |
+| `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion="28"`) | File into shared Music below API 29; on demand only |
+| `ACCESS_MEDIA_LOCATION` | Artwork metadata |
 | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | `audio_service` playback service |
-| `WAKE_LOCK` | Playback continues with screen off |
-| `POST_NOTIFICATIONS` | Playback notification controls |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prevents playback service being killed |
+| `WAKE_LOCK` | Playback screen off |
+| `POST_NOTIFICATIONS` | Playback controls; walkthrough asks |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Keep playback service alive past OEM power management; walkthrough or Settings > Playback, never startup |
 | `MODIFY_AUDIO_SETTINGS` | `AndroidEqualizer` DSP pipeline |
 | `BLUETOOTH_CONNECT`, `BLUETOOTH` (`maxSdkVersion="30"`) | Bluetooth media controls |
 
 * **Application ID / namespace**: `pharmaracist.fathom`.
 * **Notification channel ID**: `pharmaracist.fathom.playback` (`player.dart`, `AudioServiceConfig`).
-* **Method channels**: all three are registered by hand in `MainActivity.configureFlutterEngine`, not through a plugin registrant. `pharmaracist.fathom/equalizer` (`FathomEqualizerPlugin`), `pharmaracist.fathom/downloads` (`FathomDownloadsPlugin`), and `pharmaracist.fathom/power` (`FathomPowerPlugin`) — the downloads plugin is constructed with the activity because filing a download below API 29 may have to ask for storage access, and `MainActivity.onRequestPermissionsResult` forwards the answer to it so a held call is never leaked. The power plugin is constructed with the activity too (it needs a `Context` for `PowerManager`), and is handed its `MethodChannel` so the `ACTION_POWER_SAVE_MODE_CHANGED` receiver it registers while started can report back; `MainActivity.cleanUpFlutterEngine` calls its `release()` so an engine teardown never leaves that receiver registered.
-* **Remote source dependency**: `newpipeextractor_dart` (NewPipe Extractor, native Kotlin, **GPL-3.0**). Fathom is private and undistributed, which is what makes the copyleft acceptable; publishing it would force Fathom to GPL-3.0. It replaced `yt_flutter_musicapi`, which shipped a Chaquopy CPython runtime plus `ytmusicapi`/`yt-dlp` inside the APK. Native Kotlin is why the swap also removed the Python runtime and the pub-cache patches. Android side requires: JitPack in `android/build.gradle.kts` (`allprojects.repositories`), and `isCoreLibraryDesugaringEnabled = true` plus `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")` in `android/app/build.gradle.kts` (NewPipe targets Java 8 APIs the platform lacks below API 26). Its `flutter_inappwebview` dependency exists for the reCAPTCHA challenge only and is not wired into Fathom.
+* **Method channels**: four, hand-registered in `MainActivity.configureFlutterEngine`, never a plugin registrant. `pharmaracist.fathom/equalizer` (`FathomEqualizerPlugin`), `pharmaracist.fathom/downloads` (`FathomDownloadsPlugin`), `pharmaracist.fathom/library` (`FathomLibraryPlugin`), `pharmaracist.fathom/power` (`FathomPowerPlugin`). Downloads takes the activity because filing below API 29 may ask for storage access; `MainActivity.onRequestPermissionsResult` forwards the answer so a held call never leaks. Library also takes the activity: deleting a file Fathom does not own needs the system's `MediaStore.createDeleteRequest` confirmation on Android 11+, and the plugin holds one call while that dialog is up; `MainActivity.onActivityResult` routes the answer back. Power takes the activity (`Context` for `PowerManager`) and its channel so the `ACTION_POWER_SAVE_MODE_CHANGED` receiver it registers while started can report back; `MainActivity.cleanUpFlutterEngine` calls `release()` so teardown leaves no receiver.
+* **Remote source**: `newpipeextractor_dart` (NewPipe Extractor, native Kotlin, **GPL-3.0**). Fathom private and undistributed, so copyleft is acceptable; publishing forces GPL-3.0. Replaced `yt_flutter_musicapi` (Chaquopy CPython plus `ytmusicapi`/`yt-dlp`); native Kotlin also dropped the Python runtime and pub-cache patches. Android needs JitPack in `android/build.gradle.kts` (`allprojects.repositories`); `isCoreLibraryDesugaringEnabled = true` and `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")` in `android/app/build.gradle.kts` (NewPipe targets Java 8 APIs missing below API 26). `flutter_inappwebview` exists for reCAPTCHA only, unwired.
 
-  **Rhino ships and is reachable — do not exclude it.** The extractor depends on `org.mozilla:rhino` and uses it to run YouTube's player JavaScript when a stream URL arrives as a `signatureCipher`: `VideoExtractor.getStream` goes through `YoutubeStreamExtractor`, which calls `YoutubeJavaScriptPlayerManager` to deobfuscate the signature through `JavaScript`, which is Rhino. Fathom never implements signature solving itself, but the extractor it delegates to still runs that path internally, so removing Rhino would replace a build-time warning with a `NoClassDefFoundError` on any track whose stream URL carries a cipher — an unexplained resolve failure on a subset of tracks. That is the failure shape this app works hardest to avoid.
+  **Rhino ships and is reachable — do not exclude it.** The extractor depends on `org.mozilla:rhino` and runs YouTube player JavaScript when a stream URL arrives as `signatureCipher`: `VideoExtractor.getStream` → `YoutubeStreamExtractor` → `YoutubeJavaScriptPlayerManager` → `JavaScript` (Rhino). Excluding Rhino turns a build warning into `NoClassDefFoundError` on ciphered streams: unexplained resolve failure on a subset of tracks. Keep it.
 
-* **R8 keep rules** (`android/app/proguard-rules.pro`): the Flutter Gradle plugin enables minification for **every** release build (`FlutterPlugin.kt` sets `releaseBuildType.isMinifyEnabled = true`), and it adds `proguard-android-optimize.txt`, its own `flutter_proguard_rules.pro`, and — purely by convention — this module's `android/app/proguard-rules.pro` when that file exists. So the file's *name* is load-bearing: it is picked up automatically and must not be renamed, and no `proguardFiles` call belongs in `build.gradle.kts`, because naming the files there would add the default rules a second time. The rules are `-dontwarn` rather than `-keep` because the classes they name are genuinely absent on Android: `JavaToJSONConverters` reflects over JavaBeans on a generic object-to-JSON path NewPipe never takes, and `RhinoScriptEngineFactory` exists only for JSR-223 service-loader discovery, which Fathom does not use. R8 cannot prove that unreachability, so the references are accepted. Regenerate the list from `build/app/outputs/mapping/release/missing_rules.txt` when a dependency changes.
+* **R8 keep rules** (`android/app/proguard-rules.pro`): plugin minifies **every** release build (`FlutterPlugin.kt` sets `releaseBuildType.isMinifyEnabled = true`) and adds `proguard-android-optimize.txt`, `flutter_proguard_rules.pro`, and this module's file by convention. File name is load-bearing: do not rename; no `proguardFiles` in `build.gradle.kts` (duplicates the defaults). **Rhino is kept whole** (`org.mozilla.javascript.**`, `org.mozilla.classfile.**`): `Context` and `VMBridge` load their bridge and code generator by name, so reachability analysis strips them from call sites. A narrowed build proved it: release mapping reduced `Context` to `<clinit>` and `YoutubeSignatureUtils` held `throw null` where `Context.compileString` belongs, breaking every `signatureCipher` stream. Remaining rules are `-dontwarn`, not keeps: `java.beans.**` (JavaBeans reflection on an unused object-to-JSON path), `javax.script.**` (JSR-223 engine, unused) and `jdk.dynalink.**` (invokedynamic bootstrap in `optimizer.Bootstrapper`; Android has no call-site support). R8 cannot prove unreachability once the package is kept. Regenerate from `build/app/outputs/mapping/release/missing_rules.txt` after a dependency change.
 * **`android:label`**: `Fathom`, matching `kAppName`.
-* **Launcher icon pipeline**: `flutter_launcher_icons` config lives in `pubspec.yaml`; never hand-edit the generated files under `android/app/src/main/res`. Vector source is `assets/branding/icons/fg.svg` (tabler `wave-sine`, stroke forced to `#FFFFFF`); rasterize it to `assets/branding/icons/fg.png` at 1024x1024 (e.g. `magick -background none -density 4096 fg.svg fg.png`) and reuse that PNG as both `adaptive_icon_foreground` and `adaptive_icon_monochrome`. The pre-API 26 fallback is `assets/branding/icons/icon_fallback.png` (black iOS-style superellipse with the white emblem, built by `python3 tool/gen_fallback_icon.py`, requires Pillow) and is wired as `image_path`. `tool/gen_readme_layers.py` builds `assets/branding/icons/readme_layers.png`, the layer strip shown in `README.md`. The adaptive icon is defined in `mipmap-anydpi-v26/ic_launcher.xml` with `@color/ic_launcher_background` (`#000000`, from `values/colors.xml`) plus `@drawable/ic_launcher_foreground` and `@drawable/ic_launcher_monochrome` layers at `adaptive_icon_foreground_inset` (28%) inset; the monochrome layer is what Android 13+ themed icons tint with wallpaper colors. After changing any source image, regenerate with `python3 tool/gen_fallback_icon.py && dart run flutter_launcher_icons`.
-* The manifest also registers `com.ryanheise.audioservice.AudioService` (foreground type `mediaPlayback`) and `MediaButtonReceiver`, both required by `audio_service`.
+* **Launcher icon pipeline**: `flutter_launcher_icons` config in `pubspec.yaml`; never hand-edit `android/app/src/main/res`. Source `assets/branding/icons/fg.svg` (tabler `wave-sine`, stroke `#FFFFFF`); rasterize `assets/branding/icons/fg.png` at 1024x1024 (`magick -background none -density 4096 fg.svg fg.png`), used as both `adaptive_icon_foreground` and `adaptive_icon_monochrome`. Pre-26 fallback `assets/branding/icons/icon_fallback.png` (black superellipse, white emblem, `python3 tool/gen_fallback_icon.py`, needs Pillow), wired as `image_path`. `tool/gen_readme_layers.py` builds `assets/branding/icons/readme_layers.png` for `README.md`. Adaptive `mipmap-anydpi-v26/ic_launcher.xml`: `@color/ic_launcher_background` (`#000000` from `values/colors.xml`) plus `@drawable/ic_launcher_foreground` and `@drawable/ic_launcher_monochrome`, inset `adaptive_icon_foreground_inset` (28%); monochrome gets the Android 13+ tint. After a source change: `python3 tool/gen_fallback_icon.py && dart run flutter_launcher_icons`.
+* Manifest registers `com.ryanheise.audioservice.AudioService` (foreground `mediaPlayback`) and `MediaButtonReceiver`, both required by `audio_service`.
 
 ---
 
@@ -93,7 +102,7 @@ lib/
 
 ### `FathomTrack` (`lib/models/tracks.dart`)
 
-Immutable model representing one item, from either origin. Only a device track is playable; a remote item must be downloaded first.
+Immutable item, either origin. Only device tracks play; remote items download first.
 
 ```dart
 enum TrackOrigin { device, ytMusic }
@@ -113,119 +122,141 @@ class FathomTrack {
 }
 ```
 
-* **Equality**: `origin` plus the origin's own identity — `id` for device tracks, `videoId` for remote ones. A bare `id` comparison is wrong for remote tracks, whose ids are hashes.
-* **Factories**: `FathomTrack.fromDevice(song)` parses raw `on_audio_query` objects. `FathomTrack.yt(item)` builds a track from a `YtItem`: it is a *remote item*, not a playable track — `uri` is empty and stays empty, because no remote address is ever stored (they expire within hours) and nothing remote is streamed. It becomes playable only by being downloaded, at which point the library scan finds the file and it arrives as a device track. The extractor reports duration in whole seconds, so `durationMs` is that times 1000.
-* **`thumbUri` and `thumbUris` are not redundant.** `thumbUri` is the one image a row displays, already chosen at `kThumbRowMaxWidth` (or `kThumbThriftyMaxWidth` under `dataSave`). `thumbUris` is every size the item carries, kept because a download wants real cover art rather than a row image and has to choose again at `kThumbArtMaxWidth`; the artwork URL for that is the derived `artworkUrl`, never `thumbUri`. Both are chosen by encoded width, not list position — see section 4.
+* **Equality**: `origin` plus identity — `id` for device, `videoId` for remote. Bare `id` is wrong for remote (ids are hashes).
+* **Factories**: `FathomTrack.fromDevice(song)` parses raw `on_audio_query` objects. `FathomTrack.yt(item)` builds from a `YtItem`: a *remote item*, not playable: `uri` empty and stays empty, because no address is stored (they expire in hours) and nothing remote streams. Playable only after download, when the scan finds the file as a device track. Extractor duration is whole seconds, so `durationMs` = seconds × 1000.
+* **`thumbUri` vs `thumbUris`**: `thumbUri` is the row image at `kThumbRowMaxWidth` (or `kThumbThriftyMaxWidth` under `dataSave`). `thumbUris` is every size the item carries; a download chooses again at `kThumbArtMaxWidth` for `artworkUrl`, never `thumbUri`. Both pick by encoded width, not list position (section 4).
 
 ---
 
 ## 3. State Architecture & Service Contracts
 
-State is driven by `Provider` / `ChangeNotifier` and divided into five domains: `FathomSettings`, `FathomLibrary`, `FathomPlayer`, `FathomSearch` and `FathomDownloads`. The first three are long lived and notified; `FathomSearch` is a small in-memory holder with no persistence; `FathomDownloads` owns the download manifest and the in-flight fetches.
+`Provider` / `ChangeNotifier`, five domains: `FathomSettings`, `FathomLibrary`, `FathomPlayer`, `FathomSearch`, `FathomDownloads`. First three long lived and notified; `FathomSearch` in-memory; `FathomDownloads` owns manifest and in-flight fetches.
 
 ### 3.1 `FathomSettings` (`lib/common/settings.dart`)
 
-Unified, strongly typed settings store backed by `SharedPreferences`.
+Typed store over `SharedPreferences`.
 
 #### The `SettingKey` Enum API
 
 ```dart
 enum SettingKey {
   accentIndex('fathom.accent', 0),
-  useArtAccent('fathom.art_accent', false),
-  fontKey('fathom.font', 'Oswald'),   // the bundled family; 'System' opts back out
+  fontKey('fathom.font', 'Oswald'),   // bundled or an installed Google Font; 'System' opts back out
+  themeIndex('fathom.theme', 2),       // 0 = Light, 1 = Dark, 2 = Auto (follow the device)
+  amoled('fathom.amoled', false),      // Pure black background behind the dark theme
+  onboarded('fathom.onboarded', false),// First-run walkthrough finished
   gapless('fathom.gapless', true),
   speedIndex('fathom.speed', 1),
   sortIndex('fathom.sort', 0),
   eqEnabled('fathom.eq.enabled', true),
   eqPreset('fathom.eq.preset', null),
+  limiter('fathom.eq.limiter', true),
   shuffle('fathom.shuffle', false),
   repeatIndex('fathom.repeat', 0),
   dataSave('fathom.data_save', false), // Smaller remote thumbnails, fewer rows and results
-  lowEnd('fathom.low_end', false),     // Flat cards instead of frosted glass (see section 5). The user's stored choice only; power save overrides it at read time
-  themeIndex('fathom.theme', 2);       // 0 = Light, 1 = Dark, 2 = Auto (follow the device)
+  lowEnd('fathom.low_end', false);     // Flat cards instead of frosted glass (see section 5). The user's stored choice only; power save overrides it at read time
 }
 ```
 
 * **Accessors**:
-  * `T get<T>(SettingKey key)`: returns the stored value, or the key's `defaultValue` when unset.
-  * `void set<T>(SettingKey key, T value)`: updates memory, persists to disk when `prefKey` is non-empty, and calls `notifyListeners()` **only when the value actually changed**. Callers must not rely on `set` to emit when writing an identical value.
-* **Derived read-only accessors**: `accent`, `repeatMode`, `themeMode` and `lowEndInForce` are the sanctioned exceptions to the "no custom getters" rule in section 6.1. They encapsulate the index↔enum and index↔swatch mapping, nothing else. `themeMode` maps `themeIndex` (0/1/2) onto `ThemeMode.light`/`dark`/`system` with an explicit switch; the `ThemeMode` enum's own order does not match the indices. `lowEndInForce({powerSave})` returns `low_end` OR `powerSave`, and is the one answer to "is low-end mode actually in force" — it takes the battery state as a parameter rather than depending on the native power service, because that state is not a preference and `FathomSettings` must not grow a mutable field for it. The stored `low_end` key is never written while power save is on. Do not add further getters with mutation or caching side effects.
-* **Dynamic accent resolution**: `settings.accent` returns the `PaletteGenerator`-extracted artwork accent while `useArtAccent == true` and an extracted color exists; otherwise it falls back to `FathomColors.accentSwatches[accentIndex]`.
-* **EQ gain staging**: gains are stored out-of-band in `_eqGains` (persisted under `fathom.eq.gains` as `hz#db` pairs). `stageEqGain(hz, db)` mutates the live map for immediate DSP feedback; `commitEq()` persists. `eqGains` returns an unmodifiable view.
-* **EQ preamp**: the input gain applied before the band filters is `_eqPreamp`, staged by `stageEqPreamp(db)`, persisted under `fathom.eq.preamp`, and read back as `eqPreamp`. It only reaches DSP on the native (`DynamicsProcessing`) path.
-* **EQ presets**: named curves are persisted under `fathom.eq.presets` as JSON `{"<name>": {"gains": [10 values], "preamp": db, "source": "<wire>"}}`, and the store never holds a name that collides with a built-in (`kEqPresets`). `EqPreset` is source-tagged: `EqPresetSource.user` for curves saved on the equalizer page, `EqPresetSource.autoEq` for curves imported from the AutoEQ catalogue. Both kinds go through the same `saveEqPreset(name, preset)` / `applyEqPreset(name)` path, and `eqPresetNames(source)` lets a surface render one source at a time: the equalizer chip row lists built-ins, then `user`, then `autoEq`. Presets are always `kEq10Bands` order plus a preamp, so an importer must map its curve onto those ten bands. The AutoEQ importer (`FathomAutoEq`) does exactly that: it downloads `FixedBandEQ.txt`, whose ten filters already match `kEq10Bands`, and rejects any document whose filter count or centre frequencies do not line up. Gains are clamped to `FathomNativeEqualizer.minDecibels`/`maxDecibels` and the preamp to `maxPreampDecibels`; when a document omits its own `Preamp:` the peak gain is cancelled instead.
+  * `T get<T>(SettingKey key)`: stored value or `defaultValue`.
+  * `void set<T>(SettingKey key, T value)`: memory; disk when `prefKey` non-empty; `notifyListeners()` **only on real change**. Do not rely on `set` to emit for an identical value.
+* **Derived read-only accessors**: `accent`, `repeatMode`, `themeMode`, `lowEndInForce` — only exceptions to "no custom getters" (6.1). They map index↔enum/swatch, nothing else. `themeMode` maps `themeIndex` 0/1/2 explicitly to `ThemeMode.light`/`dark`/`system` (enum order differs). `lowEndInForce({powerSave})` = `low_end` OR `powerSave`; battery is a parameter, not a field, and `low_end` is never written while power save is on. No other getters with mutation or caching.
+* **Accent**: `settings.accent` = `settings.accentSeeds[accentIndex]` through `FathomColors.readableAccent`, HCT tone clamped ≥68 dark, ≤46 light, hue/chroma kept. Accents paint text, icons and 1px controls, so a raw dark seed on dark (or white on light) vanishes. `accentSeeds` keeps raw choices; the sheet paints the clamped color. Artwork never feeds the accent.
+* **Custom seeds**: `fathom.accent.custom`, JSON ARGB ints, beside const `FathomColors.accentSwatches`. `accentSeeds` = built-ins then customs; `accentIndex` indexes the combined list, so a custom survives restart. `addAccentSeed(Color)` refuses duplicates, else append/persist/notify; the plus tile opens `color_seed_picker.dart` and selects on add. Stored custom data, not a `SettingKey`; no side effects.
+* **EQ gain staging**: `_eqGains` (`fathom.eq.gains`, `hz#db` pairs). `stageEqGain(hz, db)` mutates for DSP; `commitEq()` persists; `eqGains` is unmodifiable.
+* **EQ preamp**: `_eqPreamp`, `stageEqPreamp(db)`, `fathom.eq.preamp`, read as `eqPreamp`. Native (`DynamicsProcessing`) path only.
+* **EQ presets**: `fathom.eq.presets`, JSON `{"<name>": {"gains": [10 values], "preamp": db, "source": "<wire>"}}`; no name collides with a built-in (`kEqPresets`). `EqPreset` is source-tagged `EqPresetSource.user` or `EqPresetSource.autoEq`; both use `saveEqPreset(name, preset)` / `applyEqPreset(name)`; `eqPresetNames(source)` renders one source, chip row built-ins then `user` then `autoEq`. Always `kEq10Bands` order plus preamp; importers map onto those bands. `FathomAutoEq` downloads `FixedBandEQ.txt` (ten filters already match) and rejects wrong filter count or centre frequencies. Gains clamp to `FathomNativeEqualizer.minDecibels`/`maxDecibels`, preamp to `maxPreampDecibels`; a document without `Preamp:` cancels the peak gain.
 
 ### 3.2 `FathomSearch` (`lib/common/search.dart`)
 
-Holds the one search field's state. There is a single query because there is a
-single field; a search is expected to reach both collections at once.
+One field, one query; a search reaches both collections.
 
-* `query` is the `ValueNotifier<String>` behind the rail's text box. It survives a route push, so returning from Now Playing restores what was typed.
-* `clear()` empties it, which is what "show everything" means on the library page.
-* Nothing binds a query to a source. The library page reads `query` and decides what a match means: device tracks by title and artist, remote results by asking the source. Do not reintroduce a per-source query or an "active source" concept; the field is the whole surface.
+* `query` is the `ValueNotifier<String>` behind the rail's text box. Survives a route push, so Now Playing returns to the same text.
+* `clear()` empties it ("show everything").
+* No query binds to a source. The library page decides what a match means: device by title/artist, remote by asking the source. No per-source query, no "active source"; the field is the whole surface.
 
 ### 3.3 `FathomLibrary` (`lib/common/library.dart`)
 
-Manages system audio storage access, background scanning, and image memory caching.
+Owns storage permission, scanning, image memory caching.
 
-* **Lifecycle awareness**: uses `AppLifecycleListener` to refresh the media list when returning from background.
-* **Status pipeline**: `FathomLibraryStatus` transitions `idle` -> `permissionNeeded` / `loading` -> `ready` / `failure`.
-* **Artwork cache**: `Future<Uint8List?> artFor(int id)` is the single owner of cached album artwork bytes. It eliminates scroll stutter in lists; no other component may keep a parallel artwork cache (Known Gaps 7).
-* **Artwork URI**: `Uri? artUriForTrack(FathomTrack track)` resolves the artwork content URI used by `ArtThumb` and the backdrop.
+* **Lifecycle**: `AppLifecycleListener` refreshes the media list on return from background.
+* **Status**: `FathomLibraryStatus` `idle` -> `permissionNeeded`/`loading` -> `ready`/`failure`.
+* **Scans reconcile, never replace.** Download completion, rescan and lifecycle refresh all end in `applyScan`. `reconcileLibraryTracks` (`lib/common/library_diff.dart`, pure, tested) keys by origin+identity, reuses the previous `FathomTrack` when identity+metadata match, returns list + `FathomLibraryDelta` (`added`/`removed`/`moved`/`updated`). Identical scan publishes nothing (no assignment, revision bump or notification). Changed scan publishes one unmodifiable snapshot and one notification, so a one-track change is a one-track delta.
+* **`revision`/`lastDelta` are the change signal.** `FathomTrack` equality stops at identity, so a metadata-only update is invisible to a deep compare; `revision` increments on every real publish and the page memoises sorted/merged lists on it. `lastDelta` names changes for addition animations.
+* **Rescan keeps the list mounted.** `loading` only when no ready list exists; a `ready` refresh publishes directly, so scroll/controller/position survive. A generation guard drops an older scan finishing after a newer one.
+* **Cold start paints the last scan before querying.** `restoreSnapshot` reads `library.snapshot.v1.json` from app support before the first frame; `main` awaits it, then queries. Written after every real `applyScan` via serialized temp-file rename; only device tracks with a uri. Encode on a worker isolate (`compute`) — thousands of rows stall the UI isolate; decode on the main isolate because it precedes `runApp`, where a worker hop only adds latency. A cache, not truth: scan reconciles over it; a stale row costs one correction, a lost file one slow start.
+* **Artwork cache**: `Future<Uint8List?> artFor(int id)` owns album-art bytes; `Uint8List? cachedArtFor(int id)` is the synchronous read, so a route paints resolved bytes instead of a placeholder during the Hero flight. `FathomArtCache.cachedForVideo` is the remote equivalent. No parallel artwork cache (Gap 3). `ArtThumb`/`RemoteArt` decode at painted size (`Image.memory(cacheWidth/cacheHeight)` from widget size × DPR), never intrinsic: a 1000px cover for a 48px row costs megabytes and a stall.
+* **Artwork URI**: `Uri? artUriForTrack(FathomTrack track)` resolves the content URI for `ArtThumb` and the lockscreen item.
+* **Fetched-file fallback**: no embedded art -> `fallbackArtFor` maps media id through the manifest to videoId, returns the cached remote cover (3.5). Assigned once in `main`, so the library stays free of downloads; a non-Fathom file has no fallback.
+* **Deletion is a MediaStore request, then a rescan.** `deleteTracks(tracks)` keeps device ids ≥ 0 and invokes the library channel; native deletes what Fathom owns and, on Android 11+, asks the system to confirm files it does not, holding the Dart call until answered. Only ids the platform reports gone are returned. Their art cache entries are evicted and the library reloads, so list and selection reconcile against the store rather than an optimistic edit. Callers must leave un-deleted rows selected; a partial answer is normal when the user cancels the system dialog.
 
 ### 3.4 `FathomPlayer` (`lib/common/player.dart`)
 
-Central audio engine linking `just_audio`, hardware DSP effects, `audio_service`, and dynamic color extraction.
+Audio engine: `just_audio`, hardware DSP, `audio_service`, queue restore.
 
-* **Audio pipeline**: initializes `AudioPlayer` with an `AndroidEqualizer` attached via `AudioPipeline(androidAudioEffects: [...])`.
-* **Playable means local.** The player holds no remote source and does not know YouTube exists. `_resolveAll(tracks)` turns a list into playable `AudioSource`s by taking only `TrackOrigin.device` entries; a remote item is dropped, because there is nothing to play until it has been downloaded and the library scan has found the file. Nothing is resolved lazily and no address is cached, so Fathom never depends on a stream URL still being valid — which is the whole point of being a fetcher-downloader rather than a streamer.
+* **Pipeline**: `AudioPlayer` with `AndroidEqualizer` via `AudioPipeline(androidAudioEffects: [...])`.
+* **Playable means local.** Player holds no remote source and does not know YouTube exists. `_resolveAll(tracks)` takes only `TrackOrigin.device`; remote is dropped, because nothing plays until downloaded and scanned. No lazy resolve, no cached address, so playback never depends on an expiring stream URL.
 * **Queue operations**:
-  * `playFrom(List<FathomTrack> list, int index)`: replaces the engine queue using `AudioPlayer.setAudioSources(List<AudioSource>)` where each entry is `AudioSource.uri(uri, tag: track.id)`, then applies shuffle and loop mode and starts playback. `ConcatenatingAudioSource` is the legacy mechanism and must not be reintroduced.
-  * `enqueue(tracks)` and `playNext(tracks)` append after the current item or after the current one respectively; both fall back to `playFrom` when nothing is playing.
-  * `moveAt(int from, int to)` and `removeAt(int index)`: reorder and remove entries, then call `_rebuildSources()`, which replays the queue into the engine at the same index, position and playing state. just_audio holds its own copy of the sources, so no structural edit may skip this step.
-* **List order is not play order.** `_sourceQueue` is the editable list the queue panel edits, index-aligned with the engine's sources. Shuffle never rewrites it: just_audio keeps its own shuffled permutation, so what plays next is `queue[_selectedIndex + 1]` only when shuffle is off. Everything that has to answer "what comes next" therefore asks the engine, never the list:
-  * `nextTrack` / `previousTrack` are the neighbour a skip would land on, in play order, or `null` when the skip is blocked. The Now Playing carousel is handed these rather than computing an index, which is what keeps its side covers correct with shuffle on.
-  * `canSkipNext` / `canSkipPrevious` compare `AudioPlayer.nextIndex` / `previousIndex` against the current index. They are not a repeat-mode switch: repeat-one and a single-item queue both resolve to "next" == "now", and a shuffled order can have a next track at the end of the list or none at the start of it.
-* **Media item ownership**: `_pushMediaItem()` publishes the `MediaItem` for the current track to `FathomAudioHandler`; `playFrom`, `playIndex`, `moveAt`, and `removeAt` all call it. Only device tracks are ever published, so the media item always has a real uri; downloaded tracks are ordinary device tracks by then and carry their own artwork.
-* **Palette extraction**: on track change, when `useArtAccent == true`, `_extractArt(track)` samples dominant vibrant colors from `trackArtBytes(library, track)` — device artwork or the cached remote thumbnail — and calls `settings.updateArtAccent(color)`.
+  * `playFrom(List<FathomTrack> list, int index)`: replaces the queue with `AudioPlayer.setAudioSources(List<AudioSource>)`, each `AudioSource.uri(uri, tag: track.id)`, applies shuffle/loop, starts. `ConcatenatingAudioSource` is legacy; do not reintroduce.
+  * `enqueue(tracks)` / `playNext(tracks)`: append after the end or after the current item; both fall back to `playFrom` when nothing plays.
+  * `moveAt(int from, int to)` / `removeAt(int index)`: edit, then `_rebuildSources()` replays the queue at the same index, position and playing state. just_audio keeps its own copy, so a structural edit must not skip this.
+* **List order is not play order.** `_sourceQueue` is the editable list the queue panel edits, index-aligned with engine sources. Shuffle never rewrites it: just_audio keeps its own permutation, so next is `queue[_selectedIndex + 1]` only with shuffle off. Everything answering "what comes next" asks the engine:
+  * `nextTrack`/`previousTrack`: neighbour a skip lands on, in play order, or `null` when blocked. The carousel gets these, not a computed index, so side covers survive shuffle.
+  * `FathomPlayer.canSkipNext`/`canSkipPrevious`: compare `AudioPlayer.nextIndex`/`previousIndex` to current. Not a repeat switch: repeat-one and a single-item queue resolve next == now; a shuffled order can have a next at the end or none at the start.
+* **Media item**: `FathomPlayer._pushMediaItem()` publishes the current `MediaItem`; `playFrom`, `playIndex`, `moveAt`, `removeAt` call it. Only device tracks publish, so the uri is real; a downloaded track is a device track by then and carries its own art.
+* **Deletion reaches the queue through `forgetTracks(mediaIds)`.** Removing files is not only a library concern: a deleted track may be queued or playing. The queue drops those ids; if the current track was one of them, playback stops rather than seeking into whatever takes its place, and the next survivor becomes current but stays paused. A deletion elsewhere keeps position and playing state. Deleting the whole queue clears both saved keys.
+* **Queue survives cold start, not just current track.** Split across `fathom.player.state.v2` (`{queue: [FathomTrack.toJson…], index}`) and `fathom.player.position.v2` (`{id, positionMs}`). Queue writes only on change; position on a timer, so advancing one integer does not rewrite hundreds of rows. Queue JSON encodes/decodes on a worker isolate (`compute`) — hundreds of rows on the UI isolate stall every structural edit. Position names its track, applies only when the id matches the restored one, so the keys may describe different moments without seeking the wrong track. `fathom.player.state.v1` (single track) is fallback, dropped once the queue is deliberately emptied. Position is a **throttle**, not a debounce: timer only when none pending, so several events/second yield one write per five seconds. Pause, seek and `onPause`/`onDetach` flush position; index change, `playFrom`, structural edit and `dispose` flush both keys. Shuffle/repeat live outside the payload (`SettingKey.shuffle`/`repeatIndex` are written on every toggle, fresher). `restoreLastState` runs **after** `initialize` (chained in `main`), keeps device tracks with uri, rebuilds sources, seeks, no autoplay; a refused source clears queue and saved payload instead of retrying a dead file.
+* **Background**: `AudioService.init` publishes the restored/playing media item and `sync()`s as soon as the handler exists; otherwise audio_service never promotes the service to foreground. Settings > Playback "Background playback" reports `FathomPowerState.isBatteryExempt` and opens the system battery-optimization screen via the power plugin, because OEM power management can reclaim even a foreground service while the app is restricted. Re-read on resume. `androidStopForegroundOnPause` stays true so a paused player releases service/wake lock; the saved queue makes that safe.
 
 ### 3.5 `FathomDownloads` (`lib/services/downloads.dart`)
 
-Fetches a remote track's audio and files it on the device. Built in `main` rather than by the provider tree, because it has to rescan the library the moment a file lands — it is given a `FathomYtSource` of its own and an `onFinished` callback, and it never learns what a library is. It is the **only** holder of the remote source now: the player does not have one.
+Fetches remote audio and files it. Built in `main`, not by providers, because it rescans the library when a file lands: gets its own `FathomYtSource` and `onFinished`, never learns what a library is. **Only** holder of the remote source; the player has none.
 
-* **The chain**: resolve an address from the source, stream the bytes into the app's own temp directory, sniff the container from the first bytes, then hand the finished file to Android, which writes it into the shared Music collection. Nothing durable is stored on the way in, because those addresses expire. Resolution goes through `source.resolve`, which returns the item's cover art alongside the address from the same extractor call — see section 4.
-* **Artwork runs alongside the audio, not after it.** The two are independent requests to different hosts, so `_run` starts the cover-art fetch and then the transfer, awaiting the artwork in a `finally` so a failed transfer cannot leave its future unhandled. Awaiting it in sequence made every download pay audio **plus** artwork; started together, a download costs whichever is slower. The image comes from `ResolvedAudio.artwork` — the largest size the item carries — with `FathomTrack.artworkUrl` as the fallback, never `thumbUri`, which is row-sized and under `dataSave` the smallest size available. All four temp paths are keyed by `videoId`, and `_waiters` refuses a second run for an id already in flight, so concurrent runs cannot collide.
-* **The manifest** is a `videoId` -> MediaStore row map under `downloads.manifest.v1`. It answers two questions and nothing else: "has this remote track already been fetched" and "is this device track one of ours". Losing it costs re-downloading, never correctness — the files are already in the media store.
-* **Concurrency**: `maxConcurrent` is 3. Beyond that a track waits as `DownloadState.pending`; the future returned by `download()` completes when the work actually finishes, even if it queued, so a caller can await a real outcome.
-* **States**: `download(track)` returns false without side effects when there is nothing to do (no remote id, already in the manifest). Otherwise it moves `idle` -> `pending`/`running` -> `done` or `failed`, and `stateOf` / `progressOf` are the read surface a menu needs. A failed track can be retried; a running or pending one cannot be started twice.
-* **The failure reason is a separate read from the bool result.** `failureOf(videoId)` returns why the last attempt failed, or null, and is cleared when the item is retried so it can never describe an attempt still in flight. It is deliberately not folded into `download`'s return value: a caller that only needs "did it work" should not have to carry a message, and the one that shows a message reads it here. This matters because the source resolves an address by returning null rather than throwing, so the reason is recorded in exactly one place and a caller that drops it turns every distinct cause — a captcha, a throttled request, a video with no audio stream — into the same "could not save".
-* **Rescan**: the manifest is persisted before `onFinished` fires, so the library scan that follows sees a file whose row id is already recorded, and the badge is correct on the first rebuild.
-* **Every step is bounded, and each bound is matched to what it actually covers.** A download has no natural end if a socket stalls halfway, so an unbounded chain leaves a row spinning forever and the message the user is waiting on never arrives. The three:
-  * `resolveTimeout` (30s) covers the source handing back a media address. `_fetch` sets `connectionTimeout`, but that only governs the TCP connect, and resolving is a separate round trip it does not cover.
-  * `transferTimeout` (10min) covers the whole audio transfer, not each chunk. A server can accept the connection and then stall mid-body, which hangs the per-chunk `await for`; a stalled transfer is indistinguishable from a slow one until it is bounded.
-  * `remuxTimeout` (2min) covers the mp4 remux and tag — the one step with no socket underneath it, where a malformed input would otherwise leave FFmpeg reading for the rest of the run. On timeout the session is **cancelled** rather than abandoned, so the native process goes away too, and the untagged audio is returned instead: the tag is a nicety, and losing it must not lose the file.
-  * `saveAudio` is deliberately **not** bounded. Below API 29 the native side holds the MethodChannel call while it asks for storage permission, so a timeout there would abort a legitimate user-facing dialog.
+* **Chain**: resolve address, stream into app temp, sniff container from first bytes, hand to Android, which tags and writes into shared Music in one native pass. Nothing durable stored on the way in (addresses expire). `source.resolve` returns cover art from the same extractor call (section 4).
+* **Artwork runs alongside audio.** `_run` starts the cover fetch, then the transfer, awaiting artwork in a `finally` so a failed transfer leaves no unhandled future. Sequential awaiting cost audio **plus** art; together it costs the slower. Image is `ResolvedAudio.artwork` (largest size), fallback `FathomTrack.artworkUrl`, never `thumbUri` (row-sized, smallest under `dataSave`). Four temp paths key on `videoId`; `_waiters` rejects a second run, so no collision. Cover is remembered in `FathomArtCache` before filing, letting the library serve it via the manifest bridge when the media store has no art.
+* **Manifest**: `videoId` -> MediaStore row map, `downloads.manifest.v1`. Answers: already fetched? is this track ours? which videoId owns this media id (feeds the art fallback)? Loss costs re-download and fallback cover, never correctness.
+* **Metadata during save**: native tags the MP4 in-process (replaces `udta`, patches fragmented `tfhd` base offsets so YouTube's m4a is taggable), embeds cover, inserts MediaStore row, writes `TITLE`/`ARTIST`/`ALBUM`/`DURATION` on a worker thread. Untaggable (WebM, MP4 top-level `mfra`) still files with MediaStore columns and cached art; real metadata either way.
+* **No remux, no FFmpeg.** Old chain wrote 3× and shelled out per track; gone. `resolve` picks the highest-bitrate m4a audio-only stream, fallback highest-bitrate audio of any container, never muxed video+audio, so no discarded video is downloaded.
+* **Concurrency**: `maxConcurrent` 3; beyond that `DownloadState.pending`. `download()`'s future completes when work finishes, even if queued, so callers await a real outcome.
+* **States**: `download(track)` returns false with no side effects when there is nothing to do (no remote id, already in manifest). Else `idle` -> `pending`/`running` -> `done`/`failed`; `stateOf`/`progressOf` are the menu reads. Failed retries; running/pending cannot start twice.
+* **Failure reason is separate from the bool.** `failureOf(videoId)` returns why the last attempt failed, or null, cleared on retry so it never describes an in-flight attempt. Not folded into `download()`: success callers should not carry a message. The source signals failure by null, so the reason lives in one place; dropping it turns captcha/throttle/no-audio into "could not save".
+* **Rescan**: manifest persists before `onFinished`, so the next scan sees a recorded row id and Downloads can join on first rebuild.
+* **Notification permission** belongs to the walkthrough: `FathomDownloads.requestNotificationPermission()` is public, called by the first-run page with an explanation. Nothing requests it at construction.
+* **List reads are three different things.** A surface needs outstanding work (service) and finished files (library).
+  * `entries`: `DownloadEntry` work still owed — queued, running, failed with reason. Finished files are absent (library owns them). **Cached/rebuilt only on state change**, never on a progress tick; progress is per row via `progressOf`.
+  * `downloadedMediaIds`: media ids Fathom fetched. **Replaced, never mutated**, so a select rebuilds on set change; a mutated list compares equal and never rebuilds. Row id `-1` = unnamed, filtered (cannot play). No library badge; remote search uses it to avoid duplicates, Downloads joins on it.
+  * `forget(videoId)`: drops a failed row; device unchanged (never written). Clears the attempt so a dismissed row stays gone. Never touches the manifest, so "already fetched" remains if the file landed.
+  * `forgetMediaIds(mediaIds)`: the deletion counterpart. A deleted file is not a download any more, and its manifest entry would keep the remote result permanently "already fetched" with nothing on disk. Entry, state, progress and tracked record are dropped, the media-id list is replaced (never mutated), and the manifest is persisted.
+* **Network bounds, each matched to its step.** A stalled socket has no natural end; unbounded = row spins forever.
+  * `resolveTimeout` 30s: source hands back an address. `_fetch`'s `connectionTimeout` covers only TCP connect; resolving is a separate round trip.
+  * `transferTimeout` 10min: whole transfer, not per chunk. A server can stall mid-body and hang the `await for`; stalled and slow look identical until bounded.
+  * `saveAudio` deliberately **unbounded**: native tag/file on a worker; below API 29 may hold for the storage dialog, so a Dart timeout would abort a legitimate action. No FFmpeg remux timeout; that step is gone.
 
 ---
 
 ## 4. Audio Pipeline & OS Services (`lib/services/`)
 
-* **`FathomAudioSession`**: configures hardware output via `AudioSession.instance` set to `AudioSessionConfiguration.music()`.
-* **`FathomAudioHandler`**: subclasses `BaseAudioHandler` to interface with native OS playback services (Android MediaSession / iOS Remote Command Center).
-  * `sync()` maps `just_audio` state onto an OS-level `PlaybackState`: control buttons (`skipToPrevious` / `play` / `pause` / `skipToNext`, gated by `FathomPlayer.canSkipNext` / `canSkipPrevious`), seek system actions, `playing`, `processingState`, `updatePosition`, `bufferedPosition`, `speed`, and `queueIndex`. `sync()` does **not** publish `MediaItem`; that belongs to `FathomPlayer._pushMediaItem()`.
-  * Handles lock screen events: `play`, `pause`, `stop`, `skipToNext`, `skipToPrevious`, `seek`, `fastForward`, `rewind`.
-* **`FathomNativeEqualizer`** (`lib/services/equalizer.dart`): `MethodChannel('pharmaracist.fathom/equalizer')` bridge to the native ten band stage. Every call is failure tolerant; when `isSupported()` reports false the player keeps the hardware bands. Owns the gain and preamp ranges (`minDecibels`, `maxDecibels`, `maxPreampDecibels`).
-* **`FathomPowerState`** (`lib/services/power.dart`): `MethodChannel('pharmaracist.fathom/power')` bridge to Android's Battery Saver. Built and `start()`ed in `main` beside the other services, and provided so surfaces can read it. It is a `ChangeNotifier` rather than a `ValueListenable<bool>` because its subscribers are unequal: `FathomApp` needs to rebuild the whole subtree (it owns the one write of `GlassContainer.blurEnabled`), while the settings row only needs a flag it can `select`. `start()` reads `isPowerSave` once and subscribes to `onPowerSaveChanged`; `stop()` unsubscribes and the native side unregisters its receiver, so nothing is left registered. Every call is failure tolerant and every failure means "not saving power", so a missing or broken bridge can never wedge the app in low-end mode.
-* **`FathomYtSource`** (`lib/services/yt_source.dart`): the remote music source, hidden behind an interface so the rest of Fathom never names the package that provides it. `FathomYtMusic` is the only implementation, and it is a **fetcher, not a streamer**: there is deliberately no "give me a URL I can play now" method, because a live stream address is the fragile half of every YouTube client — it expires, it is throttled, and keeping it valid is what forces signature deciphering.
-  * `initialize()` prepares the extractor once and remembers the outcome; `retry()` clears that memo for the error panel's retry action. `isReady` and `error` describe a failed start instead of throwing at callers; `error` is about the *source*, not one fetch, so an unresolvable track never writes there — that would make one bad result look like the whole surface being down. The one piece of setup is `LocalizationExtractor.setLocalization(language, country)`; a wrong market still searches, so its failure is not fatal.
-  * `search(query, limit: quality:)` returns a stream, but the extractor answers a whole page at once, so the stream is a shape callers already understand rather than a claim that results arrive one by one. `quality` is `YtQuality.low` or `high` and selects a thumbnail **by the width its URL encodes**, never by list position: the native side's `imagesToList` is a bare `images.map { it.url }`, so it discards NewPipe's own `width`/`height` and does not sort, which made either end of the list arbitrary. The caps live in `models/ytmusic.dart` (`kThumbThriftyMaxWidth`, `kThumbRowMaxWidth`, `kThumbArtMaxWidth`) beside `pickThumbnail`/`thumbWidthOf`, which are pure URL logic and therefore unit-tested directly. The library page owns supersession: it bumps a token per keystroke and drops results carrying an older one.
-  * `resolve(videoId)` resolves one media address **at fetch time** for `FathomDownloads`, which downloads from it immediately, and returns the item's best cover art alongside it as `ResolvedAudio`. The rule is absolute: no `FathomTrack` ever stores an audio address, because they expire. An item whose address cannot be resolved returns null and is reported as a failed download, and `lastResolveError` carries why: a null answer is an ordinary outcome rather than a thrown one, so that field is the only place the cause survives, and a caller that drops it leaves the user with "Could not save" and nothing to act on.
-  * **The artwork rides along on the resolve, and that is deliberate.** `VideoExtractor.getStream` already returns the video's own metadata — including every thumbnail size — beside its streams, so `resolve` reads both out of one extractor call and the image costs nothing extra. This is what fixes a download's cover art: a search's `thumbUri` is chosen for a list row and, under `dataSave`, is the smallest size the item has, so reusing it baked a 48px square permanently into the file's tag. `FathomTrack.artworkUrl` therefore picks from the carried `thumbUris` at `kThumbArtMaxWidth`.
-  * The market is derived from the device locale (`FathomYtMusic.deviceCountry`, `deviceLanguage`) rather than a setting.
-  * Failure modes are real and documented, not hypothetical: rate limiting, a reCAPTCHA challenge, and `FatalFailureException` when upstream YouTube changes. Search failing leaves playback of downloaded music working, which is why the fetcher is allowed to fail loudly at the search surface. Neither surface may swallow a cause in silence: the search stream's `onError` and the download failure path both have to carry it somewhere the user reads, because an empty state cannot distinguish "nothing matched" from "the search never ran", and a download toast cannot distinguish a captcha from a video that has no audio stream. One property of the native bridge bounds how precise those messages can be: the Kotlin extractor catches a failed audio-stream fetch into an *empty list* rather than an error, so a refusal to hand over a stream and a video with genuinely none are the same answer on the Dart side, and the wording says which of the two it can actually tell apart instead of inventing a finer distinction.
-* **`FathomArtCache`** (`lib/services/artwork.dart`): remote artwork bytes keyed by `videoId`, not by the thumbnail URL, because the URL is a rewrite that changes with the requested quality while the item stays the same. Concurrent callers for one item share a single request. Failures return null so a missing thumbnail can never break a row or a playback start.
-* **`FathomAutoEq`** (`lib/services/autoeq.dart`): read-only client for the public AutoEQ catalogue, reachable as the `FathomAutoEq.instance` singleton. `entries()` downloads and caches the recommended-results index for the process lifetime; `fetch(entry)` downloads one `FixedBandEQ.txt` and maps it onto `kEq10Bands`, returning a source-tagged `EqPreset`. Failures surface as `AutoEqException` with a message safe to display; the equalizer page's `Get` chip keeps its panel open so the user can retry.
+* **`FathomAudioSession`**: `AudioSession.instance` set to `AudioSessionConfiguration.music()`.
+* **`FathomAudioHandler`**: `BaseAudioHandler` for MediaSession / Remote Command Center. `sync()` maps `just_audio` to `PlaybackState`: buttons gated by `canSkipNext`/`canSkipPrevious`, seek actions, `playing`, `processingState`, `updatePosition`, `bufferedPosition`, `speed`, `queueIndex`. Does **not** publish `MediaItem` (player owns it). Lock events: `play`, `pause`, `stop`, `skipToNext`, `skipToPrevious`, `seek`, `fastForward`, `rewind`.
+* **`FathomNativeEqualizer`** (`lib/services/equalizer.dart`): `MethodChannel('pharmaracist.fathom/equalizer')` to the native ten-band stage. Failure tolerant; `isSupported()` false -> hardware bands. Owns `minDecibels`, `maxDecibels`, `maxPreampDecibels`.
+  * **Every write reports landing.** `attach`/`setGains`/`setGain`/`setPreamp`/`setEnabled`/`setLimiter` return `bool`; `false` clears `_attached`, so a dead effect cannot absorb dial moves silently. Native returns `false` (no engine/refusal), not a throw.
+  * **`isAlive()`**: health check when the Equalizer destination opens and on every new audio session; a dead effect is rebuilt on the live session.
+  * **Coalesced writes**: newest gain per band (`_pendingGains`), one writer, one channel call in flight; preamp same. Frees the platform thread while a dial moves.
+  * **Refusal recovers once**: reset latches, re-attach current session, replay the stored curve (staged before the write, so no value loss). A second refusal in the same drain gives up.
+  * **Native `Engine` builds a fresh `EqBand` per write**, never reads channel 0 back: some HALs return a disabled/stale band, and gain on a disabled band succeeds without effect. Re-asserts `enabled` before writing (platform can disable behind the app).
+* **`FathomPowerState`** (`lib/services/power.dart`): `MethodChannel('pharmaracist.fathom/power')` to Battery Saver. Built and `start()`ed in `main`, provided for surfaces. `ChangeNotifier`, not `ValueListenable<bool>`: `FathomApp` rebuilds the subtree (owns the `blurEnabled` write), the settings row only `select`s a flag. `start()` reads `isPowerSave` and subscribes to `onPowerSaveChanged`; reads `isIgnoringBatteryOptimizations`, re-reads on resume (Settings > Playback reflects a system grant). `requestBatteryExemption()` opens the screen, returns whether one opened, not whether allowed. `stop()` unsubscribes; native unregisters. Failures mean "not saving power" / "unrestricted", so a broken bridge never wedges low-end or sends the user to a screen for nothing.
+* **`FathomYtSource`** (`lib/services/yt_source.dart`): remote source behind an interface; rest of Fathom never names the package. `FathomYtMusic` is the only implementation, a **fetcher, not a streamer**: no playable-now method, because a live address is fragile (expires, throttled, forces signature deciphering).
+  * `initialize()` once, memoises outcome; `retry()` clears the memo for the error panel. `isReady`/`error` describe a failed start, no throw; `error` is source-wide, so an unresolvable track never writes it (would look like the whole surface is down). Setup is `LocalizationExtractor.setLocalization(language, country)`; a wrong market still searches, nonfatal.
+  * `search(query, limit: quality:)` returns a stream but answers a page at once. `quality` is `YtQuality.low` or `high`, selecting a thumbnail **by encoded width**, not position: native `imagesToList` is a bare `images.map { it.url }`, discarding width/height and not sorting, making either end arbitrary. Caps in `models/ytmusic.dart` (`kThumbThriftyMaxWidth`, `kThumbRowMaxWidth`, `kThumbArtMaxWidth`) beside `pickThumbnail`/`thumbWidthOf`, pure URL logic, unit-tested. Library page owns supersession: token per keystroke, older results dropped.
+  * `resolve(videoId)` resolves at fetch time for `FathomDownloads`, which downloads immediately, returning the best cover as `ResolvedAudio`. No `FathomTrack` stores an address (they expire). Null = failed download; `lastResolveError` carries why (null is ordinary, not a throw); dropping it leaves "Could not save".
+  * **Artwork rides the resolve**: `getStream` already returns metadata incl. every thumbnail size beside streams, so one call yields both at no extra cost. Fixes cover art: a search `thumbUri` is row-sized and, under `dataSave`, the smallest, so reuse baked a 48px square into the file tag. `FathomTrack.artworkUrl` picks `thumbUris` at `kThumbArtMaxWidth`.
+  * `pickAudioStream`: highest-bitrate m4a audio-only (taggable, usually best), fallback highest-bitrate audio of any container, never muxed.
+  * Market from device locale (`FathomYtMusic.deviceCountry`, `deviceLanguage`), not a setting.
+  * Failures: rate limit, reCAPTCHA, `FatalFailureException` on upstream change. Search failure leaves downloaded playback working, so it may fail loudly at search. No swallowed cause: search `onError` and download failure both carry it, because an empty state cannot distinguish "none" from "never ran", and Downloads cannot distinguish captcha from no-audio. Native Kotlin catches a failed audio fetch into an *empty list*, so refusal and genuinely-none look identical on Dart; wording claims only what it can tell apart.
+* **`FathomArtCache`** (`lib/services/artwork.dart`): bytes keyed by `videoId`, not thumbnail URL (URL changes with quality, item does not). Concurrent callers share one request. A download remembers its resolved cover, so `cachedForVideo` answers without a round trip even with no thumbnail URL. Failures null; a missing thumb never breaks a row or playback.
+* **`FathomFonts`** (`lib/services/fonts.dart`): `FathomFonts.instance`. `catalogue()` downloads `https://fonts.google.com/metadata/fonts` once per process, keeps latin families, orders by popularity. `install(family)` asks `https://fonts.googleapis.com/css2` for the TTF URL, writes `fonts/` under app support, registers a `FontLoader`, memoises for the session; `loadSaved()` registers earlier files at boot. `SettingKey.fontKey` = bundled (`Oswald`), `System`, or installed. Pick downloads+selects; failure keeps the sheet open with its reason.
+* **`FathomAutoEq`** (`lib/services/autoeq.dart`): read-only client for the public AutoEQ catalogue at `FathomAutoEq.instance`. `entries()` caches the recommended index for the process; `fetch(entry)` downloads `FixedBandEQ.txt`, maps to `kEq10Bands`, returns a source-tagged `EqPreset`. Failures are `AutoEqException` with a display-safe message; the `Get` chip keeps its panel open for retry.
 
 ---
 
@@ -233,120 +264,174 @@ Fetches a remote track's audio and files it on the device. Built in `main` rathe
 
 ### Shell Structure (`lib/content.dart`)
 
-`RootShell` is a **multi-page shell**: `ShellPage` (`enum ShellPage { library, equalizer }`, carrying each destination's header title) is the one source of truth for what is on screen, held in a `ValueNotifier` that the rail reads and the shell switches on. Pages are *not* pushed routes — the equalizer is a destination, switched by the rail — so the shell renders a layered `Stack`:
+`RootShell` is a **multi-page shell**: `ShellPage` (`enum ShellPage { library, equalizer }`, carrying each header title) is the one source of truth for the visible page, held in a `ValueNotifier` the rail reads and the shell switches on. Pages are *not* pushed routes; the equalizer is a destination switched by the rail. Layered `Stack`:
 
-1. **`ShellChrome`** (`lib/components/shell_chrome.dart`): the fixed chrome every page wears — the `AmbientBackdrop` behind and the `PageHeader` above. It is built once, *outside* the page switch, so a page change never cross-fades or duplicates the backdrop or the header. It owns the canonical header padding (`20` gutters, `viewPadding.top + 8` top, `14` below); `PageHeader` carries no padding of its own, and a page that added its own would drift from its neighbours. The header's title and trailing controls are derived from `ShellPage`, so they change in place while the body alone changes.
-2. **`PageView`**: both destinations mounted, side by side, moved by rail tap or horizontal swipe. See *Page Swipe* below.
-3. **`FathomToastLayer`** (`lib/components/toast_layer.dart`): the message surface. It decides its own pointer behaviour rather than being wrapped in an `IgnorePointer` here: a toast is information and normally must not take a tap meant for the list, but a long-running card carries a close control that has to be reachable. Keeping that decision in one place is what stops the shell and the layer from disagreeing about it.
-4. **Dismiss layer**: a `Positioned.fill` that sits *below* `BottomPanel`, gated on the search field being focused. Tapping outside closes the keyboard. It must stay under the panel so the panel's own controls stay live, and it must stay a separate layer from the page so the text-selection toolbar — which lives in the root overlay above routes — is never swallowed by it.
-5. **`BottomPanel`** (`lib/panels/bottom_panel.dart`): combines `FloatingIslandPlayer` (compact mini-player with horizontal swipe-to-skip gestures) and `FloatingNavRail` (`lib/components/nav_rail.dart`). The rail carries one search field, bound to `FathomSearch.query`, and is the single way between destinations.
+1. **`ShellChrome`** (`lib/components/shell_chrome.dart`): fixed chrome — `AmbientBackdrop` behind, `PageHeader` above. Built once, *outside* the page switch, so a page change never cross-fades or duplicates them. Owns header padding (`20` gutters, `viewPadding.top + 8` top, `14` below); `PageHeader` has none, and a page adding its own drifts. Title/trailing derive from `ShellPage`, changing in place while only the body changes.
+2. **`PageView`**: both destinations mounted side by side; rail tap or horizontal swipe.
+3. **Dismiss layer**: `Positioned.fill` *below* `BottomPanel`, gated on search focus; outside tap closes the keyboard. Stays under the panel so its controls remain live, and separate from the page so the text-selection toolbar (root overlay) is never swallowed.
+4. **`BottomPanel`** (`lib/panels/bottom_panel.dart`): `FloatingIslandPlayer` (compact mini-player, swipe-to-skip) plus `FloatingNavRail` (`lib/components/nav_rail.dart`). The rail carries the one search field bound to `FathomSearch.query`, and is the single way between destinations.
 
 ### Page Swipe (`PageView` + `_KeepAlive`)
 
-The shell body is a `PageView` over `ShellPage.values`, so its `index` **is** the page and there is no second index to keep in step. Both ways to change destination move the same thing:
+The body is a `PageView` over `ShellPage.values`; its `index` **is** the page, no second index.
 
-* A **rail tap** calls `_runTransition`, which writes `_page` and then `animateToPage`s the view, locking nav taps until it settles (`_animating`) so a second tap cannot queue a scroll behind an in-flight one.
-* A **swipe** is adopted by the controller listener (`_onPageSettled`) once the view has come to rest, using `page.round()` — so a drag pulled back to its origin leaves the destination alone.
+* **Rail tap**: `_goTo` writes `_page` then starts `animateToPage` without awaiting. Destination is immediate (rail, header, trailing controls change in the tap frame); the scroll carries the eye. `_pageTransitionDuration` 200ms; longer reads as waiting. Curve `FathomSpringCurve` (section 5, Motion).
+* Never gated: no `_animating` lock. A second tap retargets `animateToPage`; a drag ends it and takes over. `_page` is written on tap, not completion, so no stale callback.
+* **Swipe**: adopted on the page view's `ScrollEndNotification` (`_onPageSettled`) at rest, using `page.round()`. Pulled back stays; past half commits. Only `depth == 0` counts (inner scrollables bubble too). Resolves the live position, not a remembered target, so an interrupted rail move is adopted as landed; no stale token.
 
-Both paths unfocus first, which is what collapses an open search; a page change must never strand the search field and its dismiss layer.
+Both paths unfocus, collapsing an open search; a page change never strands the field and dismiss layer.
 
-Both destinations stay **mounted**. The library is the expensive one — it owns a scroll controller, memoised sorted lists and a running remote search — and tearing it down to rebuild on the way back costs a full rescan and loses all of that, so every page is wrapped in `_KeepAlive` (`AutomaticKeepAliveClientMixin`), which is how a `PageView` page opts out of being disposed once it scrolls away. Neither the backdrop nor the header is inside the view, so they never move with a swipe.
+Both destinations stay **mounted**. The library is expensive (controller, memoised lists, running remote search); teardown costs a full rescan and loses it. `_KeepAlive` (`AutomaticKeepAliveClientMixin`) opts each page out of disposal. Backdrop/header sit outside the view, so they never move.
 
-Horizontal drags inside a page (`SingleChildScrollView`s, chip rows) still win their own gestures: Flutter resolves the axis conflict in the inner scrollable's favour, and only an over-scroll at its edge reaches the view.
+Inner horizontal drags (`SingleChildScrollView`s, chip rows) win their own gestures; only edge over-scroll reaches the view.
 
 ### Glass Surfaces (`lib/components/glass.dart`)
 
-The file holds a two-member family: `GlassContainer`, the floating-surface primitive (bottom panel, sheets, the toast layer, the action sheet, the scrubber label), and `FlatContainer`, the panel primitive for cards that sit *behind* opaque content inside a page (the settings sections, the equalizer cards, the library status block). Picking between them is the one rule here:
+Two primitives; one rule:
 
-* **Floating over live content the user can still see around and through it** (a sheet over the page, the mini player over the list, a toast, an inline label above a row) ⇒ `GlassContainer`. The blur is what makes the card read as a separate layer.
-* **Sitting behind opaque content inside a page** (a list of rows, a row of labels and chips, a status panel) ⇒ `FlatContainer`. The content covers the pixels behind the card entirely, so sampling them costs a `saveLayer` and shows nothing.
+* Floating over visible live content (sheet, mini player, inline label) ⇒ `GlassContainer`; blur separates the layer.
+* Behind opaque content (rows, chips, status panel) ⇒ `FlatContainer`; sampling hidden pixels costs a `saveLayer` and shows nothing.
 
-`GlassContainer` has two rendering modes, chosen by `GlassContainer.blurEnabled`:
+`GlassContainer` modes via `GlassContainer.blurEnabled`:
 
-* **Glass** (default): `ClipRRect` > `BackdropFilter(blur)` > `AnimatedContainer`, the frosted look.
-* **Flat**: `ClipRRect` > `AnimatedContainer`, no `BackdropFilter` anywhere in the subtree. This is `SettingKey.lowEnd`, "Low-end mode" in Settings > Appearance.
+* **Glass** (default): `ClipRRect` > `BackdropFilter(blur)` > `AnimatedContainer`.
+* **Flat**: `ClipRRect` > `AnimatedContainer`, no `BackdropFilter` in the subtree. `SettingKey.lowEnd`, "Low-end mode" in Settings > Appearance.
 
-The mode is actually in force when `FathomSettings.lowEndInForce` says so: the stored preference, or forced on while Android's Battery Saver is active. Power save never writes the key — the override is derived at read time, so turning battery saver off restores the user's own choice. While it is on, the Settings row reads ON and is not tappable, with "On: battery saver" as its reason.
+Mode in force: `FathomSettings.lowEndInForce` = stored preference or battery saver. Power save never writes the key; the override derives at read time, so turning it off restores the choice. While on, the row reads ON, is not tappable, reason "On: battery saver".
 
-`FlatContainer` is deliberately **not** `GlassContainer` with a flag: it has no `BackdropFilter` in its subtree at all, so it can never pay for a `saveLayer` no matter what `blurEnabled` says. It carries no `blur` and no `bgOpacity` — a blur is meaningless on a surface that must not sample behind itself, and the flat fill is a fixed recipe rather than a caller-tuned opacity (the fill and its accent tint have to move together to stay a legible panel). Its public shape is `child`, `radius` (22), `accent`, `padding`, `shadow` and `borderOpacity` (0.07), the last of which means exactly what `GlassContainer.borderOpacity` means.
+`FlatContainer` is **not** `GlassContainer` with a flag: no `BackdropFilter` ever, so no `saveLayer` whatever `blurEnabled` says. No `blur`/`bgOpacity`; the fill is a fixed recipe (fill + accent tint move together to stay legible). Public: `child`, `radius` 22, `accent`, `padding`, `shadow`, `borderOpacity` 0.07, `filled` true; last two only on the filled form.
 
-The flat look lives in **one** private helper, `_flatDecoration`, called by both `GlassContainer`'s flat branch and `FlatContainer`, so the two surfaces cannot drift. A flat card has no blurred sample to separate it from what is behind it, so its fill carries that separation itself — an accent tint (0.18 dark / 0.14 light) over a partially-opaque background (0.72 dark / 0.86 light), with the denser fill in the light theme, which has almost no luminance to separate with — and the 1px border, from `baseOutline` (accent blended into `onSurface`, else plain `onSurface`) at the caller's opacity raised ~1.8x and clamped in light, is what defines its edge. Both surfaces animate the decoration with an `AnimatedContainer` over 150ms, so an accent change animates.
+`FlatContainer(filled: false)`: **outline-only** — no fill, no shadow, 1px `FathomColors.hairline`, page shows through. For cards containing row stacks with separators (Settings sections, equalizer cards). A filled body competes with content and bought a backdrop blur on the equalizer. Hairline matches the inner dividers; `borderOpacity`/`accent` do not change it. Never use outline for a card floating over live content (needs fill/blur).
 
-The blur and flat modes of `GlassContainer` must stay **structurally different subtrees**, not one tree with a `sigma` of zero: a `BackdropFilter` costs a `saveLayer` even at zero sigma, so leaving one in the flat path would defeat the setting entirely.
+Clear the floating panel: library via `StyledListView.bottomInset`; equalizer via `viewPadding.bottom + 150`. Body runs *under* `BottomPanel`; otherwise card bottoms hide behind player/rail, controls unreachable, and glass samples the card. That sampling was the most expensive part of an equalizer swipe.
 
-`blurEnabled` is a plain `static`, deliberately: a notifier would rebuild every card on a write and a constructor parameter would have to be threaded through every call site. The cost of that choice is that **writing it does not repaint anything by itself**. It is written in exactly one place — `FathomApp.build`, from `settings.lowEndInForce(powerSave: widget.power.isPowerSave)`, next to `FathomColors.updateBrightness` — which works only because that widget rebuilds from both of its sources: the settings listener and the `FathomPowerState` listener, since a power save change has to repaint the app just as a setting change does. Any new global of this kind must follow the same pattern: write it from an already-rebuilding ancestor and document the read site. `FlatContainer` never reads it.
+Flat look: one helper `_flatDecoration`, used by both Glass's flat branch and `FlatContainer`, so no drift. Fill = accent tint (0.18 dark / 0.14 light) over bg (0.72 dark / 0.86 light), denser light (little luminance); 1px `baseOutline` (accent blended into `onSurface`, else `onSurface`) at caller opacity ×1.8, clamped light. 150ms decoration animation.
+
+Modes stay **structurally different**: zero-sigma `BackdropFilter` still costs `saveLayer`; do not collapse.
+
+Rail's `_RailGlass` (`lib/components/nav_rail.dart`) reads the same flag. Not a `GlassContainer` (notched clipper), but frosted over a moving page; low-end must drop it or the largest blurred band remains.
+
+`blurEnabled` is a plain `static`: notifier would rebuild every card; parameter would thread every call site. Cost: **writing does not repaint**. One writer, `FathomApp.build`, from `settings.lowEndInForce(powerSave: widget.power.isPowerSave)`, beside `FathomColors.updateBrightness`; works because that widget rebuilds from settings and power listeners; a power-save change must repaint like a setting change. New global follows the same pattern: write from a rebuilding ancestor, document the read site. `FlatContainer` never reads it.
+
+`FathomApp` does **not** rebuild on every settings notification. `_chromeSignature()` = resolved brightness, theme index, accent index+seed count, AMOLED, font, low-end, onboarding, power save; listener skips `setState` when unchanged. Sort/EQ/limiter are read by their owning surface; waking `MaterialApp` regenerated the scheme and rebuilt every page for nothing. `_themeFor` caches `ThemeData` per accent/brightness/font/AMOLED (`ColorScheme.fromSeed` is a full generation). `FathomPalette.readableAccent`/`onAccent` cache HCT conversions (row builds).
 
 ### Page Header (`lib/components/page_header.dart`)
 
-`PageHeader(title, trailing)` is the row itself; `ShellChrome` places it. The library destination passes `shellTrailing(context)`: the settings gear and a rescan icon button. Pages must not re-implement those controls, and the equalizer destination has no back control — the rail is the one way between destinations. `utilityRoute` is the single right-sliding transition Settings uses, and `settingsRoute` is the builder on top of it.
+`PageHeader(title, trailing)` is placed by `ShellChrome`. Library passes `shellTrailing(context)`: downloads, settings, rescan. Do not re-implement. Equalizer has no back control; the rail is the only way. `utilityRoute` is the single rise-and-fade for Settings/Downloads; `settingsRoute` builds on it.
 
-### Message Surface (`lib/common/toasts.dart`, `lib/components/toast_layer.dart`)
+While `FathomSelection` is active the library's trailing controls are replaced by select-all, delete and exit — the normal controls would give the mode two competing action sets. Select-all covers the **whole library**, not the rows a live search currently shows: narrowing silently would make a batch action skip tracks the user selected before typing. Delete confirms once, then calls the library, the download manifest and the player in that order, and only removes ids the platform reported gone. The title becomes the selected count. Back exits the mode instead of popping (`canPop: !selection.active`), and leaving the library destination exits it too.
 
-Toasts are the app's only transient message surface; do **not** use `SnackBar`. The bottom edge belongs to the mini player and the nav rail, so a message there would cover the controls it is usually reporting about. `FathomToasts` is a small in-memory queue provided in `main` (above the shell, so a message survives a page switch); `FathomToastLayer` renders it as glass cards directly below the header, newest nearest the header.
+### Settings and Downloads (`lib/pages/settings.dart`, `lib/pages/downloads.dart`)
 
-A toast carries **two lines of text, not one**. `title` is what happened and must survive; `detail` is the explanation, when there is one worth reading. The split exists because the two messages this surface carries are shaped differently: a confirmation is one short clause ("Saved"), while a failure is an outcome plus a cause ("Could not save" / "YouTube asked for a captcha"). Run together into a single clamped line, the half that gets truncated first is the half the user needed, so **never pass a cause through `title`** — a failure the user cannot act on is a failure reported twice.
+Pushed utility routes, both `CustomScrollView`s. **Only the page title is sticky**: `SliverPageHeader` (`lib/components/sticky_header.dart`) pins the title over a top-opaque, bottom-transparent gradient, so rows dissolve instead of being cut. Section labels are plain `SliverSectionLabel`s that scroll; pinning them put two labels at one edge and competed with the title. Settings sections are outline `FlatContainer`s; Downloads uses the same labels for *In progress*, *Failed*, *On this device* plus the pinned title, close included.
 
-The rest of the contract:
+Appearance `_showSheet` is a `GlassContainer`: accent seeds (custom picker), typography, **Get fonts**, theme, **AMOLED black**, low-end. Get fonts is a `GlassContainer` browser over `FathomFonts`: search filters, row downloads, pick installs+selects. AMOLED changes only the dark background: `FathomColors.background` returns media pure black when `_amoled` and dark; light untouched. Flag written by `FathomApp.build` beside `FathomColors.updateBrightness`.
 
-* `icon` and a `ToastTone` (`neutral` / `success` / `failure`) drive the glyph and accent; the tone supplies a default glyph when the caller names none, so an outcome is recognizable by shape before its words are read.
-* `duration` is the auto-dismiss, defaulting to three seconds. A long-running message (a download in flight) is shown with a long duration and dismissed explicitly when its outcome is known.
-* `dismissible` decides whether the card offers a close control. Off for an ordinary message, which the user has no reason to dismiss early and which would only gain a target to miss; **on for anything long-running**, because the alternative is a message the user cannot get rid of if the work outlives its usefulness. The layer lets taps through only when some visible card is dismissible, and only within the stack — an ordinary toast never swallows a tap meant for the page.
-* Timers are tracked per id and cancelled by `dismiss`, `clear` and `dispose`. Do not reach for a loose `Future.delayed` here: clearing the queue would leave a callback scheduled against a message that is already gone.
-* `maxVisible` caps the stack at three, dropping the oldest. A stack of glass cards stops being readable well before it stops fitting, and the newest is the one worth keeping.
+### First Run (`lib/pages/onboarding.dart`)
 
-The layer keeps its own `_Entry` list rather than reading the queue directly, because the notifier drops a toast the moment it is dismissed and a card that vanished between frames would never play its exit. A card enters by dropping in from the header and exits along the same path reversed; motion respects `MediaQuery.disableAnimationsOf`, which drops the travel and keeps a cross-fade.
+`OnboardingPage` is `MaterialApp.home` while `SettingKey.onboarded` is false; finish/skip writes the key, rebuilding into `RootShell`. Five pages: welcome, library, notifications, battery exemption, feature tour. Permission pages call the same services (`FathomLibrary.load(grantIfMissing: true)`, `FathomDownloads.requestNotificationPermission()`, `FathomPowerState.requestBatteryExemption()`); no second requester or status source. Nothing at startup.
 
-Read the notifier from `context` *before* an await — the page that raised the message may be gone by the time the work finishes.
+### Switch Rows
+
+`FlatSwitch` (`lib/components/flat_switch.dart`) is **display-only**: track, thumb and tint ride one press spring, `enabled` dims, no recognizer. A settings row wraps icon/title/hint/switch in one `InkWell`, so a tap fires once; an inner recognizer would win the arena and swallow. Standalone equalizer header passes its handler; exception.
+
+### Feedback
+
+No **in-app transient message surface**. Feedback belongs to the owning surface:
+
+* Playback: system media notification (`audio_service`, channel `pharmaracist.fathom.playback`), transport included.
+* Downloads: Downloads page rows with the service's own reason, retry/dismiss; a finished file appears in the library.
+* Failed search: library empty state names the cause, not "No matches".
+
+No toast stack, `SnackBar`, or overlay layer. System events via notification; screen messages on the screen.
 
 ### Search Surfaces
 
-`LibraryPage` is the search surface. With no query it shows the whole library sorted; with one it shows device matches first and remote results after them, under two section headers (`StyledListView.sectionFor`). Remote results are debounced against `FathomSearch.query`, checked against the download manifest — anything already fetched is a device track now and belongs in the first section — and **tapping one downloads it**; only a second tap, once the file is local, plays it. A remote row shows a download glyph in place of the play affordance and swaps it for a progress spinner while its fetch is in flight (`_fetch` guards against a second tap starting an overlapping fetch, which the download service would only refuse). The download's outcome is reported as a toast, and a failure carries the service's own reason rather than a generic phrase, because the causes are not interchangeable: a captcha is worth retrying later, a video with no audio stream never will be. A search that throws sets `_ytError` from the stream's error, so the empty-state panel says the search failed and why; leaving it unset would let the panel claim "No matches" for a search that never ran, which reads as a wrong answer instead of a failure. There are no suggestions and no browsing.
+`LibraryPage` is the search surface. No query: sorted library. Query: device matches first, remote after, under two section headers (`StyledListView.sectionFor`). Remote debounced 350ms against `FathomSearch.query`, previous stream cancelled; checked against the manifest (fetched = device, first section); tap downloads; second tap when local plays. Remote row shows a download glyph in place of play, a spinner while fetching (`_fetch` guards overlap). Outcome on Downloads; failure carries the service reason (captcha retryable, no-audio never). A throwing search sets `_ytError` from the stream, so the empty state says failed+why; unset would claim "No matches" for a search that never ran. No suggestions/browsing.
+
+### Downloads Page (`lib/pages/downloads.dart`)
+
+`DownloadsPage` is a pushed utility route, not a destination: rail is the only way between destinations; an unreachable page is a route, opened with `utilityRoute` from `shellTrailing`, closed with X. The one page with a back control.
+
+Three records; two service-owned (a finished file is a library device track):
+
+* **In progress**: queued/running; progress via `progressOf` per row (entry is cached on state change; per-tick rebuild wastes).
+* **Failed**: reason on the row (causes differ: captcha retryable, no-audio not); retry clears the reason, dismiss `forget` drops the attempt without touching the manifest.
+* **On this device**: fetched files joined by media id. Manifest says ours; library says title/art incl. cached remote cover. Unscanned files are absent (nothing can name them).
+
+Tap plays in on-screen list context, pushes `nowPlayingRoute()`; a track that will not start pops the page, no dead player. No Hero tag/morph from here (belongs to library tiles/mini player); in-flight/failed covers are not shown in Now Playing.
 
 ### Track List (`lib/components/styled_list_view.dart`)
 
-`StyledListView<T>` is the app's scrolling list primitive, and it is the only thing that knows how a list meets the shell. It runs the full height of the page body — straight under the header, and behind the mini player and the rail — so both of its ends have to be handled deliberately rather than left to a hard boundary:
+`StyledListView<T>` is the list primitive, the only thing knowing how a list meets the shell. Full body height, under header, behind player/rail; both ends deliberate.
 
-* **Both ends are faded, not cut.** `_EdgeFade` masks the scrolling rows with a linear alpha ramp via `ShaderMask` and `BlendMode.dstIn`, so a row scrolled to an end dissolves instead of being sliced flush by whatever it passes behind. `dstIn` multiplies the child's own alpha rather than replacing it, which matters because tiles animate in translucent — a tile mid-entrance fades from where it already is instead of being forced opaque first.
-* **It is a shader, not a `ClipRRect`, and the difference is not cost.** Both cost a compositing layer, so a rounded clip would not save anything; it would anti-alias a curve and sever a row along a shape that has nothing to do with the row, leaving the translucent tiles behind it fighting the boundary. The ramp has no curved geometry and no boundary to disagree with. Do not "improve" this into a `ClipRRect`.
-* **The falloff sits outside the list's own insets.** The ramp heights derive from `topInset`/`bottomInset`, so the first and last rows are not faded while they are still the things the eye is on. A viewport too short to hold both ramps (a keyboard, split screen) degenerates to no mask rather than hiding the middle of the list.
-* **The mask covers the scrolling rows only.** The `_FastScrollbar` and its letter label live in the `Stack` above it, so scrubbing still overhangs the list as designed. Keep them outside the mask.
-* **A tile cannot paint past its own box.** `TrackTile` is wrapped in a `ClipRect`, because the entrance animation scales to 96% and lifts 18px, and the playing indicator is positioned to the tile's edge. Without it those spill into neighbouring rows.
-* **The scrollbar thumb's 56px floor yields to the track.** Clamping to a floor taller than the track itself puts `clamp`'s lower bound above its upper one, which throws and takes the whole list down. A viewport that short is reachable, so the floor is applied only when the track can hold it.
+* **Faded, not cut**: `_EdgeFade` uses `ShaderMask` + `BlendMode.dstIn` linear alpha. `dstIn` multiplies child alpha, so entrance-translucent tiles fade from current alpha, not forced opaque.
+* **Shader, not `ClipRRect`, and not for cost**: both composite; a clip anti-aliases a curve, severs a row, and makes translucent tiles fight the boundary. Do not "improve" to `ClipRRect`.
+* **Falloff outside insets**: heights from `topInset`/`bottomInset`; first/last rows stay clear. A short viewport (keyboard, split) means no mask, not a hidden middle.
+* **Mask rows only**: `_FastScrollbar` and its label sit in the `Stack` above, so scrubbing overhangs. Keep outside.
+* **Tile cannot paint outside its box**: `TrackTile` in `ClipRect`; entrance scales 96%, lifts 18px, indicator at the edge.
+* **Scrollbar thumb's 56px floor yields to the track**: floor taller than the track puts `clamp`'s lower bound above its upper and throws; a short viewport is reachable. Apply only when the track can hold it.
+* **Rows keyed by identity**: `StyledListView.keyFor` gives `ValueKey<LibraryTrackKey>`; `findChildIndexCallback` resolves survivors. A top insert moves elements, no invalidation of the rest; survivors keep state/offset; a new key gets its own tween. Without `keyFor`, old index path.
+* **Removal not animated**: holding removed rows redefines `itemCount` and drifts indices. Rows vanish immediately; no stale rows.
+* **Selection is a gesture mode, not a preference.** Long-press a device row enters `FathomSelection` with that row chosen; further long-presses toggle. While active, every row tap toggles instead of playing or fetching, and a remote result is inert (it has no file a batch action could touch), though its long-press still opens the per-track menu. The selection holds library keys, so a rescan that replaces track instances keeps it. It is shell-owned, exits when the library destination is left, and never touches disk.
 
 ### Hero Transition Pattern
 
-Tapping the mini-player pill or a track tile in `LibraryPage` pushes `NowPlayingPage` through a custom `PageRouteBuilder` using `Curves.easeInOutCubic`. There must be exactly one shared route builder for this transition; the cover art morphs across screens using the Hero tag format:
+Mini pill or library tile pushes `NowPlayingPage` via a custom `PageRouteBuilder`, `FathomSpringCurve`. 300ms forward, 260ms back; longer reads as waiting. One shared builder; Hero tag:
 
 ```dart
 tag: 'fathom-art-${track.id}'
 ```
 
-Only the *current* cover carries the tag. The carousel beside it (`_CoverCarousel`) builds exactly three cards — previous, current, next — and swipes drive `skipNext` / `skipPrevious` rather than a page index. A `PageView` over the whole queue would carry a second index that has to stay in step with the player's, and the two disagree the moment shuffle or a queue edit moves the current track; do not reintroduce one. The neighbour covers are handed in from `FathomPlayer.nextTrack` / `previousTrack`, so they follow the engine's shuffled play order — never derive them as `queue[selectedIndex ± 1]`.
+Only the *current* cover is tagged. The title/artist pair has its own hero (`fathom-text-${track.id}`): library row, mini pill and Now Playing headline all use `TrackTextMorph`, so the shuttle reads two comparable one-line layouts and interpolates their styles instead of cutting between different widgets. The carousel beside it (`_CoverCarousel`) builds exactly three cards (prev/current/next); swipes drive `skipNext`/`skipPrevious`, not a page index. A `PageView` over the queue adds a second index that disagrees on shuffle/edit; do not reintroduce. Neighbours come from `FathomPlayer.nextTrack`/`previousTrack` (play order), never `queue[selectedIndex ± 1]`.
+
+Title/artist move on the same deck. `CoverCarousel` publishes its offset (`ValueNotifier<double>` in slots, 0 at rest); `TrackTitleDeck` (`lib/components/track_title_deck.dart`) renders three pairs translated, neighbours fading at one slot. Drag moves words; committed skip carries the old pair out with the cover; the pair also fades/rises once on open. Deck slides its own 38px, not cover spacing (narrow text would fling off). Mini pill moves art/title/artist as one face (`_PillCards`), same rule smaller.
+
+### Motion (`lib/common/motion.dart`)
+
+One motion language in one file. `FathomSpring` names a spring the way Apple's vocabulary does — `response` (seconds to target) and `dampingRatio` (1.0 does not overshoot) — and converts to Flutter's `SpringDescription` once, so no surface carries its own stiffness/damping constants.
+
+`FathomMotion` presets, named by job:
+
+* `press` 0.20s / 0.86 — touch feedback: pressed scale, slider thickness. Tiny overshoot so the control answers the finger.
+* `snap` 0.30s / 1.0 — committed state: switch knob, list row height.
+* `standard` 0.38s / 1.0 — a surface moved by navigation.
+* `momentum` 0.40s / 0.80 — a flick or drag release, and the nav pill. The only overshoot: the finger supplied the energy.
+* `gentle` 0.50s / 1.0 — large arrivals: cover scale/shadow, mini pill.
+
+Overshoot belongs to gesture momentum only. Colours, opacity, borders and shadow stay timed: a spring on a colour overshoots into a shade nobody asked for.
+
+`SpringValue` is the implicit-spring widget. A target change retargets the simulation from the value currently on screen, with its current velocity, so an interrupted move blends instead of jumping. `immediate` snaps while a gesture owns the value (slider fill follows the finger); `animateOnMount` travels from zero once (mini pill arrival); at rest the builder reads the target exactly, so a settled control is not a tolerance short. Do not add a second implicit-spring primitive.
+
+Routes and stepped page moves cannot run a simulation: the navigator or `PageController` owns an `AnimationController` with a duration. `FathomSpringCurve` gives those the same decelerating arrival on normalized time — critically damped, ending exactly at 1 — and is what `utilityRoute`, `nowPlayingRoute`, rail taps, onboarding paging, the nav search switch, the track-text hero, the list entrance cascade and `kModalMotion` (every bottom sheet and dialog) use. `PageView`'s own drag settle keeps Flutter's built-in spring: it inherits the drag velocity, which a curve cannot.
+
+Reduced motion: `utilityRoute` fades without rising; `nowPlayingRoute` swaps without a hero flight, because the shared elements have nowhere to fly. Check `MediaQuery.disableAnimationsOf(context)` before adding travel to a new route.
 
 ---
 
 ## 6. Development Conventions for Agents
 
-1. **State mutation**: reach settings exclusively through `settings.get<T>(SettingKey)` / `settings.set<T>(SettingKey, value)`. Do not add new mutable getters or setters to `FathomSettings`. Read-only derived getters are permitted only for documented key mappings (`accent`, `repeatMode`, `eqGains`, `lowEndInForce`) and must have no mutation or caching side effects.
-2. **Re-renders**: prefer `context.select<T, R>()` over `context.watch<T>()` in lists and high-frequency widgets; if a widget reads a single field from a notifier, use `select` for that field.
-3. **Theming**: derive surfaces, dividers, and text styles from `FathomColors` (`lib/common/colors.dart`) and `Theme.of(context).colorScheme`. Never inline a literal `Color(0x...)` in a widget. The app is theme-aware (light, dark, and auto-follow-device, chosen by `SettingKey.themeIndex`): `FathomColors` tokens resolve against the active `FathomPalette` — one generated-material palette per brightness, built from the seed `0xFFDC8666` via `Hct`/`TonalPalette` — which `FathomApp` re-points before the subtree builds. Read colors from the tokens, never from a literal and never from a hard-coded white/black; the Now Playing screen is the one exception and uses the theme-independent media tier (`onMedia`, `mediaScrim`, `mediaBackground`).
-4. **Imports**: direct relative imports only, one component family per file. No barrel files, no shared-global modules.
-5. **Platform surface**: declare a new Android permission only together with its row in section 1, and keep the manifest `android:label`, application ID, and notification channel ID consistent with section 1.
-6. **Global render switches**: a process-wide rendering choice that every widget must read during build (there is exactly one: `GlassContainer.blurEnabled`) is a `static` written from `FathomApp.build` next to `FathomColors.updateBrightness`, and read at the widget. It is *not* a notifier — that would rebuild every reader on a write — and *not* a threaded parameter, which would have to reach every call site. Such a static does not repaint on assignment, so the writer must be a widget that already rebuilds when the setting changes. Document the write site and the reason on the field itself; do not add a second writer, and do not introduce a second global of this kind without the same justification.
+1. **State mutation**: settings only via `settings.get<T>(SettingKey)` / `settings.set<T>(SettingKey, value)`. No new mutable getters/setters. Read-only derived only for documented mappings and stored custom data (`accent`, `accentSeeds`, `repeatMode`, `eqGains`, `lowEndInForce`), no mutation/cache.
+2. **Re-renders**: `context.select<T, R>()` over `context.watch<T>()` in lists/high-frequency widgets; one field = `select`.
+3. **Theming**: derive surfaces/dividers/text from `FathomColors` (`lib/common/colors.dart`) and `Theme.of(context).colorScheme`. Never inline `Color(0x...)`. Theme-aware (light/dark/auto via `SettingKey.themeIndex`); palette always **monochrome**: tokens resolve the active `FathomPalette` (one per brightness, fixed seed `0xFFDC8666` via `SchemeMonochrome`), repointed by `FathomApp` before the subtree builds. `SettingKey.amoled` swaps the dark background to pure black at read; light untouched. Tokens, never literals/white/black; Now Playing is the exception (`onMedia`, `mediaScrim`, `mediaBackground`).
+4. **Imports**: relative only, one component family per file. No barrels/shared-global.
+5. **Platform**: new Android permission + its section 1 row; keep `android:label`, App ID, channel consistent.
+6. **Global render switches**: a build-read process-wide choice (exactly one: `blurEnabled`) is a `static` written from `FathomApp.build` beside `updateBrightness`, read at the widget. Not a notifier (rebuilds readers), not a parameter (threads call sites). No repaint on assignment; the writer must already rebuild. Document write/read; no second writer/global without the same justification.
+7. **Motion**: springs come from `FathomMotion` (`lib/common/motion.dart`), never inline stiffness/damping or ad-hoc `AnimationController` physics. A value that must follow a gesture uses `SpringValue` with `immediate` while the finger owns it; a route or stepped page transition uses `FathomSpringCurve`. Colour, opacity, border and shadow changes stay timed.
 
 ---
 
 ## 7. Known Gaps (code must be fixed to match this document)
 
-1. ~~Hardcoded surfaces bypass `FathomColors`.~~ Closed. Every `Color(0x..)` outside `common/colors.dart` was retired into palette tokens; `GlassContainer.surface` and the switch's off-state constants are gone, and `material_color_utilities` 0.13 renamed `TonalPalette.fromHueAndChroma` to `TonalPalette.of` and `tone()` to `get()` — that rename is done, so a version bump past 0.13 needs no further edits here.
-2. ~~**`Colors.white` / `Colors.black` are still used as foregrounds** in ~116 places (list tiles, sheets, the media tier).~~ Closed. The sweep is done: surface/list/sheet foregrounds are `onSurface` alpha tiers, modal barriers are `scrim`, Now Playing uses the chroma-free media tier (`onMedia*`, `mediaBackground`, `mediaScrim`), ink on accent fills is `FathomColors.onAccent(accent)`, and the last `Colors.white`/`Colors.black`/`Color(0x..)` outside `common/colors.dart` is gone (`Colors.transparent` aside). New code must not reintroduce them.
-3. **Remote artwork is memory-only.** `FathomArtCache` has no disk tier, so every session refetches thumbnails for remote items. Downloads landed beside it in `FathomDownloads`, which keeps the two concerns apart: a download is a finished file, a thumbnail is a cache.
-4. **`QueuePanel` labels list order as "Up Next".** It renders `_sourceQueue`, which is the right thing to *edit* but is not the play order while shuffle is on, so the rows below the current track are not the tracks that will play. Showing play order instead makes drag-reorder ambiguous (a shuffled position does not name a list position), which is a design decision, not a transcription — do not change it silently.
-5. ~~**The ABI configuration conflict blocked every build.**~~ Closed. `splits { abi { ... } }` in `android/app/build.gradle.kts` collided with the Flutter Gradle plugin's own `ndk.abiFilters` injection, which AGP refuses ("Conflicting configuration ... in ndk abiFilters cannot be present when splits abi filters are set"). AGP raises this while creating variants, so it happens *during* configuration: no `afterEvaluate` can correct it, and the plugin's `disable-abi-filtering` opt-out cannot be set from `android/gradle.properties`, because it is read with `Project.findProperty` on `:app`, which never consults a properties file. The splits block was removed instead, so nothing conflicts and a plain build yields one APK that `flutter run` can install; `flutter build apk --split-per-abi` still produces split APKs on demand. Do not reintroduce a `splits` block without also solving the plugin's injection.
-6. ~~**R8 failed the release build on reflective Rhino classes.**~~ Closed. `:app:minifyReleaseWithR8` reported six missing `java.beans`/`javax.script` classes, because the Flutter plugin enables minification for every release build and the module had no `android/app/proguard-rules.pro` for the plugin to pick up. The rules now exist. The build-time half is fixed; **the release build has not been run**, so R8's reachability analysis past the `-dontwarn` directives is unverified — see section 1 for why Rhino must stay.
+1. ~~Hardcoded surfaces bypass `FathomColors`.~~ Closed. All `Color(0x..)` outside `common/colors.dart` moved to tokens; `GlassContainer.surface` and switch off-constants gone; `material_color_utilities` 0.13 renamed `TonalPalette.fromHueAndChroma` to `TonalPalette.of` and `tone()` to `get()`; a bump past 0.13 needs no edits here.
+2. ~~**`Colors.white` / `Colors.black` as foregrounds** in ~116 places.~~ Closed. Foregrounds are `onSurface` alpha tiers; barriers `scrim`; Now Playing uses the media tier; ink on accent fills is `FathomColors.onAccent(accent)`; the last white/black/hex outside `common/colors.dart` is gone (`Colors.transparent` aside). Do not reintroduce.
+3. **Remote artwork is memory-only.** `FathomArtCache` has no disk tier; every session refetches thumbnails. Downloads are separate: a file vs a cache.
+4. **`QueuePanel` labels list order "Up Next".** It renders `_sourceQueue`: right to edit, not play order under shuffle, so rows below current may not play. Showing play order makes drag-reorder ambiguous (shuffled position names no list position) — design decision, do not change silently.
+5. ~~**ABI conflict blocked every build.**~~ Closed. `splits { abi { ... } }` collided with the Flutter plugin's `ndk.abiFilters`; AGP refuses ("Conflicting configuration ... in ndk abiFilters cannot be present when splits abi filters are set") during variant creation. No `afterEvaluate` fix; `disable-abi-filtering` cannot be set in `android/gradle.properties` (read via `Project.findProperty` on `:app`, which ignores properties files). Splits removed; plain `flutter build apk` gives one APK `flutter run` can install; `flutter build apk --split-per-abi` still splits on demand. Do not reintroduce without solving the injection.
+6. ~~**R8 failed on reflective Rhino classes.**~~ Closed. `:app:minifyReleaseWithR8` reported six missing `java.beans`/`javax.script` classes; every release minifies, module had no `proguard-rules.pro`. Rules exist and the release build completes (22.1 MB arm64 APK, version `1.1.0+2043`, still debug-signed). The mapping keeps 493 Rhino classes, `Context` survives whole, and the DEX calls `Context.compileString` from the signature path instead of a `throw null` stub; **runtime on a ciphered stream is still unverified** (no device). Rhino must stay (section 1).
 
 ## 8. Planned Work
 
-* **Remote artwork disk tier.** Downloads are built; the remaining cache gap is thumbnails. `FathomArtCache` should grow a disk tier keyed the same way (`videoId`), consulted before the network, bounded by size rather than count, and never blocking a row's first paint.
-* **Queue panel search and shuffle-by-drag** are unstarted and undesigned. Do not start either without a decision about what problem they solve.
-* **reCAPTCHA navigator.** `newpipeextractor_dart` can hit a reCAPTCHA challenge, and it exposes a navigator hook for it that Fathom does not set, so that failure currently surfaces as a failed search. Wiring it would need the `flutter_inappwebview` dependency the package already pulls in, and a decision about whether a browser detour belongs in the app at all.
+* **Remote artwork disk tier.** Key by `videoId`, consult before network, size-bounded (not count), never block first paint.
+* **Queue search and shuffle-by-drag** unstarted/undesigned. Do not start without deciding what problem they solve.
+* **reCAPTCHA navigator.** Extractor hook unset, so a challenge surfaces as failed search. Needs `flutter_inappwebview` (already pulled) and a decision on whether a browser detour belongs.
