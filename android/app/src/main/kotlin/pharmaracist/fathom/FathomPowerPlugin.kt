@@ -4,8 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -39,6 +41,10 @@ class FathomPowerPlugin(private val context: Context?) :
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "isPowerSave" -> result.success(isPowerSave())
+            "isIgnoringBatteryOptimizations" ->
+                result.success(isIgnoringBatteryOptimizations())
+            "requestIgnoreBatteryOptimizations" ->
+                result.success(requestIgnoreBatteryOptimizations())
             "start" -> {
                 start()
                 result.success(null)
@@ -71,6 +77,69 @@ class FathomPowerPlugin(private val context: Context?) :
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Whether Android's battery optimizer is allowed to reclaim Fathom.
+     *
+     * This is the app-level switch the playback foreground service depends on:
+     * a media foreground service survives normal memory pressure, but an OEM
+     * power manager that has not exempted the app can still kill the process
+     * between tracks. Below API 23 there is no such switch, so the answer is
+     * "unrestricted" rather than a permission the user cannot grant.
+     */
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        val ctx = context ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val power = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            ?: return false
+        return try {
+            power.isIgnoringBatteryOptimizations(ctx.packageName)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Opens the system screen that exempts the app from battery optimization.
+     *
+     * The direct request dialog is the one that actually flips the switch, so it
+     * is tried first. OEM builds that do not expose it fall back to the app's own
+     * details page, which always has a battery entry; the list of optimized apps
+     * is the last resort. Returns whether a screen was opened, not whether the
+     * user allowed anything: that answer arrives on the next lifecycle resume,
+     * where Dart re-reads [isIgnoringBatteryOptimizations].
+     */
+    private fun requestIgnoreBatteryOptimizations(): Boolean {
+        val ctx = context ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+
+        val packageUri = Uri.parse("package:${ctx.packageName}")
+        val candidates = if (isIgnoringBatteryOptimizations()) {
+            // Already exempt: the useful destination is the list where it can be
+            // changed, not a dialog that has nothing left to ask.
+            listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        } else {
+            listOf(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(packageUri),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(packageUri),
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            )
+        }
+
+        for (intent in candidates) {
+            try {
+                // The Context is the activity, but the intent may outlive it; a
+                // new task keeps the system screen independent of the caller.
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+                return true
+            } catch (e: Exception) {
+                // Try the next destination rather than reporting a dead tap.
+            }
+        }
+        return false
     }
 
     private fun start() {

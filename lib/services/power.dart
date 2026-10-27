@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 /// Follows Android's Battery Saver state (`PowerManager.isPowerSaveMode`).
 ///
@@ -26,12 +26,23 @@ class FathomPowerState extends ChangeNotifier {
 
   bool _powerSave = false;
   bool _started = false;
+  bool _batteryExempt = true;
+  AppLifecycleListener? _lifecycle;
 
   /// Whether the device is currently in power-save mode.
   ///
   /// False until the probe answers, and false for any failure, so the boot
   /// value is the safe one.
   bool get isPowerSave => _powerSave;
+
+  /// Whether Android's battery optimizer is allowed to leave Fathom running.
+  ///
+  /// True until the probe answers, and true for any failure: an app that cannot
+  /// ask the question is not restricted by a switch it cannot read, and calling
+  /// that "restricted" would send the user to a system screen for nothing.
+  /// This is the setting a media foreground service needs on OEM Android
+  /// builds, which otherwise reclaim playback between tracks.
+  bool get isBatteryExempt => _batteryExempt;
 
   /// Reads the current state and starts reporting changes.
   ///
@@ -41,12 +52,46 @@ class FathomPowerState extends ChangeNotifier {
     if (_started) return;
     _started = true;
     _channel.setMethodCallHandler(_onPlatformCall);
+    // Exemption is granted from a system screen, so the answer can only change
+    // while the app was away. Re-reading on resume is what makes the settings
+    // row reflect the choice the user just made.
+    _lifecycle ??= AppLifecycleListener(onResume: refreshBatteryExemption);
     _powerSave = await _readInitial();
+    _batteryExempt = await _readBatteryExemption();
     notifyListeners();
     try {
       await _channel.invokeMethod<void>('start');
     } catch (e) {
       debugPrint('Fathom: power save reporting unavailable: $e');
+    }
+  }
+
+  /// Re-reads whether the app is exempt from battery optimization.
+  ///
+  /// Safe to call at any time. It notifies only on a real change, so a resume
+  /// that changed nothing repaints nothing.
+  Future<void> refreshBatteryExemption() async {
+    final exempt = await _readBatteryExemption();
+    if (exempt == _batteryExempt) return;
+    _batteryExempt = exempt;
+    notifyListeners();
+  }
+
+  /// Opens the system screen where the exemption is granted.
+  ///
+  /// Returns whether a screen was opened; the granted answer is read back by
+  /// [refreshBatteryExemption] when the app resumes. Never throws.
+  Future<bool> requestBatteryExemption() async {
+    try {
+      return await _channel.invokeMethod<bool>(
+            'requestIgnoreBatteryOptimizations',
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } catch (e) {
+      debugPrint('Fathom: battery exemption screen unavailable: $e');
+      return false;
     }
   }
 
@@ -65,6 +110,8 @@ class FathomPowerState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
+    _lifecycle = null;
     // Fire and forget: this runs from `FathomApp`'s dispose, where the engine
     // may already be going away, and nothing needs to await the teardown.
     stop();
@@ -80,6 +127,20 @@ class FathomPowerState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Fathom: power save probe failed: $e');
       return false;
+    }
+  }
+
+  Future<bool> _readBatteryExemption() async {
+    try {
+      return await _channel
+              .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
+          true;
+    } on MissingPluginException {
+      // No native side: there is no optimizer to be exempt from.
+      return true;
+    } catch (e) {
+      debugPrint('Fathom: battery exemption probe failed: $e');
+      return true;
     }
   }
 

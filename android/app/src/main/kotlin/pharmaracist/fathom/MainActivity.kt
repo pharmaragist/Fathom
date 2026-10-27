@@ -1,5 +1,6 @@
 package pharmaracist.fathom
 
+import android.content.Intent
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -14,6 +15,7 @@ class MainActivity : AudioServiceActivity() {
     private var equalizerPlugin: FathomEqualizerPlugin? = null
     private var downloadsPlugin: FathomDownloadsPlugin? = null
     private var powerPlugin: FathomPowerPlugin? = null
+    private var libraryPlugin: FathomLibraryPlugin? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -32,6 +34,16 @@ class MainActivity : AudioServiceActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             FathomDownloadsPlugin.CHANNEL,
         ).setMethodCallHandler(downloads)
+
+        // Deleting a library track is a MediaStore request, and on Android 11
+        // and later it may need the activity to host the system's delete
+        // confirmation. The answer is forwarded back below.
+        val library = libraryPlugin
+            ?: FathomLibraryPlugin(this).also { libraryPlugin = it }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            FathomLibraryPlugin.CHANNEL,
+        ).setMethodCallHandler(library)
 
         // Power save mode is a device state the UI has to follow live, so the
         // plugin reports back on this same channel instead of being polled. It
@@ -62,6 +74,11 @@ class MainActivity : AudioServiceActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        downloadsPlugin?.onRequestPermissionsResult(requestCode, grantResults)
+        downloadsPlugin?.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        libraryPlugin?.onActivityResult(requestCode, resultCode, data)
     }
 }
