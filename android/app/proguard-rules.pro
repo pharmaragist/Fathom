@@ -20,20 +20,34 @@
 # so replaces a build-time warning with a `NoClassDefFoundError` on a subset of
 # tracks, which would surface as an unexplained resolve failure.
 #
-# Rhino's `JavaToJSONConverters` reflects over JavaBeans to turn arbitrary Java
-# objects into JSON, and that path names `java.beans.*`. Those classes are not
-# on Android at all, and the reflective bean path is never taken by NewPipe's
-# use of Rhino, which only ever evaluates a script and calls a function. R8
-# cannot prove that unreachability, so the references are accepted here rather
-# than kept.
+# Rhino is kept whole, not narrowed to the classes NewPipe names directly.
+# R8's reachability analysis cannot follow Rhino's own dispatch: `Context`
+# loads its VM bridge (`org.mozilla.javascript.VMBridge_jdk18`) and its code
+# generator (`org.mozilla.javascript.optimizer.Codegen`) by name, and the
+# interpreter/optimizer split hands work to classes no static call edge names.
+# A narrowed build proved this the hard way: release mapping reduced
+# `org.mozilla.javascript.Context` to `<clinit>` plus one field, and
+# `YoutubeSignatureUtils` ended up with a `throw null` where
+# `Context.compileString` belongs, so every signatureCipher stream would have
+# failed to resolve at runtime while debug builds worked. Keeping the package
+# costs about a megabyte and removes the whole failure mode.
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.** { *; }
+
+# Keeping the whole runtime brings in two Java SE surfaces Android lacks, both
+# on paths Fathom never takes:
 #
-# `javax.script.ScriptEngineFactory` is the JSR-223 registration interface,
-# referenced only by Rhino's `RhinoScriptEngineFactory` so the engine can be
-# discovered through the standard service loader. Fathom never uses the script
-# engine SPI, and the class is likewise absent on Android.
--dontwarn java.beans.BeanDescriptor
--dontwarn java.beans.BeanInfo
--dontwarn java.beans.IntrospectionException
--dontwarn java.beans.Introspector
--dontwarn java.beans.PropertyDescriptor
--dontwarn javax.script.ScriptEngineFactory
+# * `java.beans.*` — `JavaToJSONConverters` reflects over JavaBeans to turn
+#   arbitrary Java objects into JSON. NewPipe only evaluates a script and calls
+#   a function.
+# * `javax.script.*` — the JSR-223 engine (`org.mozilla.javascript.engine`).
+# * `jdk.dynalink.*` — the `invokedynamic` bootstrap in `optimizer.Bootstrapper`.
+#   Android's ART has no `java.lang.invoke` call-site support for it; `Codegen`
+#   and the interpreter, which NewPipe does use, do not need it.
+#
+# R8 cannot prove those branches unreachable once the package is kept, so the
+# references are accepted instead of kept. `-dontwarn` does not keep the classes
+# and does not change which path runs; it only lets the build finish.
+-dontwarn java.beans.**
+-dontwarn javax.script.**
+-dontwarn jdk.dynalink.**

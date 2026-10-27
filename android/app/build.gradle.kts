@@ -29,6 +29,10 @@ android {
         // ABI's version automatically, so split APKs do not share a version code.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // NDK abiFilters left to Flutter/AGP defaults to avoid conflicts with
+        // Flutter's split ABI configuration. Use `flutter build apk --split-per-abi`
+        // for per-ABI splits.
     }
 
     buildTypes {
