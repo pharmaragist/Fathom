@@ -16,16 +16,36 @@ class FathomArtCache {
   final HttpClient _http = HttpClient()
     ..connectionTimeout = const Duration(seconds: 15);
 
+  /// Bytes already held for [videoId], or null when none were fetched yet.
+  ///
+  /// This is the read side the library uses for a device track that came from
+  /// a download: the download itself puts its cover art here (see [remember]),
+  /// so a row can show it without asking the network again and without knowing
+  /// anything about the remote source.
+  Uint8List? cachedForVideo(String videoId) => _memory[videoId];
+
+  /// Keeps [bytes] for [videoId] so later readers find them without a request.
+  ///
+  /// A download has the cover art in hand already; remembering it is free and
+  /// is what lets the library resolve the artwork of a fetched file whose
+  /// MediaStore row carries none.
+  void remember(String videoId, Uint8List bytes) {
+    if (videoId.isEmpty || bytes.isEmpty) return;
+    _memory[videoId] = Uint8List.fromList(bytes);
+  }
+
   /// Returns the artwork for a remote item, or null if it cannot be fetched.
   ///
   /// Concurrent callers for the same item share one request.
   Future<Uint8List?> forVideo(String videoId, Uri? thumbUri) {
+    // A remembered image needs no URL: a download resolves the cover art and
+    // keeps it here, and that item's row may have arrived without a thumbnail.
+    final cached = _memory[videoId];
+    if (cached != null) return Future.value(cached);
+
     if (thumbUri == null || thumbUri.toString().isEmpty) {
       return Future.value(null);
     }
-
-    final cached = _memory[videoId];
-    if (cached != null) return Future.value(cached);
 
     return _inFlight[videoId] ??= _fetch(videoId, thumbUri);
   }

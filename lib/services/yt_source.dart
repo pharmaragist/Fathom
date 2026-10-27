@@ -7,39 +7,62 @@ import 'package:newpipeextractor_dart/newpipeextractor_dart.dart';
 
 import '../models/ytmusic.dart';
 
-/// Which thumbnail resolution a search asks for.
-///
-/// The extractor returns every size the item carries and the caller picks, so
-/// this is only about how much the row is allowed to download.
+/// Which thumbnail resolution a search asks for: only how much a row may
+/// download, since the extractor returns every size and the caller picks.
 enum YtQuality { low, high }
 
-/// One item's audio address and the desktop-quality cover art for its file.
-///
-/// The two arrive together because the extractor returns them together: a
-/// resolve is already a video-metadata request, and the artwork rides along on
-/// it for free. Splitting them into two calls would double the round trips for
-/// no gain.
+/// One item's audio address plus the cover-art candidates for its file; both
+/// come from one resolve call, so splitting them would double the round trips.
 @immutable
 class ResolvedAudio {
-  const ResolvedAudio({required this.audio, this.artwork});
+  const ResolvedAudio({required this.audio, this.artworks = const []});
 
-  /// The media address to download from. It expires within hours, so it is
-  /// used immediately and never stored.
+  /// The media address to download from. It expires within hours: use it at
+  /// once, never store it.
   final Uri audio;
 
-  /// The largest thumbnail the item carries, for embedding in the downloaded
-  /// file's own tag. Null when the item has none.
-  final Uri? artwork;
+  /// The cover-art URLs the item carries, widest first, at most four.
+  ///
+  /// The largest preset is not guaranteed to exist, so the caller tries these in
+  /// order and keeps the first that returns bytes.
+  final List<Uri> artworks;
+
+  /// The best candidate, derived so it cannot disagree with [artworks].
+  Uri? get artwork => artworks.isEmpty ? null : artworks.first;
+}
+
+/// Picks the audio-only stream a download should fetch.
+///
+/// Never a muxed `videoStreams` entry: that is video Fathom would discard.
+/// Within `audioOnlyStreams` the choice is the highest-bitrate `m4a`, the one
+/// container the native metadata writer can tag without re-encoding. Only an
+/// item with no m4a falls back to the best stream of any format, which keeps
+/// MediaStore columns alone. Entries with no address are skipped.
+AudioOnlyStream? pickAudioStream(List<AudioOnlyStream> streams) {
+  AudioOnlyStream? bestAac;
+  AudioOnlyStream? bestAny;
+
+  for (final stream in streams) {
+    final url = stream.url;
+    if (url == null || url.isEmpty) continue;
+
+    if (bestAny == null || stream.averageBitrate > bestAny.averageBitrate) {
+      bestAny = stream;
+    }
+    if (stream.formatSuffix == 'm4a' &&
+        (bestAac == null || stream.averageBitrate > bestAac.averageBitrate)) {
+      bestAac = stream;
+    }
+  }
+
+  return bestAac ?? bestAny;
 }
 
 /// The remote music source: a fetcher, not a streamer.
 ///
-/// Fathom keeps nothing remote playable. A search finds items, and an item
-/// becomes music only once [resolve] has been used to fetch its bytes and
-/// `FathomDownloads` has filed them on the device. There is deliberately no
-/// "give me a URL I can play right now" method: a live stream address is the
-/// fragile half of every YouTube client — it expires, it is throttled, and it
-/// is what forces signature deciphering — and nothing here needs one.
+/// Nothing remote is playable. An item becomes music only after [resolve] and
+/// `FathomDownloads` file it. There is deliberately no "playable URL" method: a
+/// live address expires and is what forces signature deciphering.
 abstract class FathomYtSource {
   /// Prepares the extractor. Safe to call repeatedly; the work happens once.
   Future<void> initialize();
@@ -48,49 +71,34 @@ abstract class FathomYtSource {
 
   /// Why [initialize] failed, or null while the extractor is usable.
   ///
-  /// This describes the *source*, not one fetch: it is what the library page's
-  /// error panel shows when a search cannot run at all. A single track that
-  /// cannot be resolved does not write here — that would make one bad result
-  /// look like the whole source being down — and is reported through
-  /// [lastResolveError] instead.
+  /// This describes the source, not one fetch: a single unresolvable track is
+  /// reported through [lastResolveError], never here.
   String? get error;
 
-  /// Why the most recent [resolve] call returned null, or null when it
-  /// succeeded.
+  /// Why the most recent [resolve] returned null, or null when it succeeded.
   ///
-  /// [resolve] answers with null rather than throwing, because a fetch that
-  /// cannot be resolved is an ordinary outcome, not an exceptional one: the
-  /// caller reports it as a failed download. That makes this the only place the
-  /// reason survives, and a caller that drops it leaves the user with "Could
-  /// not save" and nothing to act on.
+  /// [resolve] answers with null rather than throwing, so this is the only place
+  /// the reason survives; a caller that drops it leaves only "Could not save".
   String? get lastResolveError;
 
-  /// Clears the remembered failure and tries again, for an error panel's
-  /// retry action.
+  /// Clears the remembered failure and retries, for an error panel's action.
   Future<void> retry();
 
-  /// Remote search results, yielded progressively as the backend finds them.
-  /// Callers that care about a superseded search should guard on their own
-  /// token; this stream has no notion of one.
+  /// Remote search results. Callers that care about a superseded search must
+  /// guard on their own token; this stream has no notion of one.
   Stream<YtItem> search(
     String query, {
     required int limit,
     required YtQuality quality,
   });
 
-  /// Resolves one item's direct media address, together with the best cover
-  /// art available for the file it will become.
+  /// Resolves one item's direct media address and the best cover art for the
+  /// file it will become.
   ///
-  /// The caller downloads from the address immediately; it is never stored on a
-  /// [FathomTrack], because it expires within hours. A null return means the
-  /// address could not be resolved, which is an ordinary outcome rather than an
-  /// exceptional one — the caller reports it as a failed download — and
-  /// [lastResolveError] says why, since that is then the only place the reason
-  /// survives.
-  ///
-  /// The artwork is advisory and may be null, but it comes from the same
-  /// extractor call, so a caller that drops it discards a free high-resolution
-  /// image and leaves itself only the row-sized URL the search happened to keep.
+  /// The caller downloads immediately and never stores the address, which
+  /// expires within hours. Null means the address could not be resolved (an
+  /// ordinary outcome) and [lastResolveError] says why. The artwork is advisory
+  /// but free, so dropping it leaves only the row-sized search URL.
   Future<ResolvedAudio?> resolve(String videoId);
 }
 
@@ -218,7 +226,7 @@ class FathomYtMusic implements FathomYtSource {
   ///
   /// Null means the address could not be resolved, which is an ordinary
   /// outcome; [lastResolveError] says why. Artwork is advisory: an item whose
-  /// thumbnails are missing still resolves, with a null [ResolvedAudio.artwork].
+  /// thumbnails are missing still resolves, with no [ResolvedAudio.artworks].
   @override
   Future<ResolvedAudio?> resolve(String videoId) async {
     if (videoId.isEmpty) {
@@ -236,11 +244,11 @@ class FathomYtMusic implements FathomYtSource {
       final video = await VideoExtractor.getStream(
         'https://www.youtube.com/watch?v=$videoId',
       );
-      // The download pipeline tags the file as m4a and ffmpeg copies the
-      // stream, so an AAC track keeps the container it was written in. An OGG
-      // stream would be remuxed into a container it does not belong in, so the
-      // AAC track is preferred and only a video without one falls back.
-      final stream = video.audioWithBestAacQuality;
+      // The download pipeline rewrites only the mp4 metadata boxes and never
+      // re-encodes, so an AAC track is the one that keeps its container and can
+      // carry tags. An OGG track has no tagger here, so it is the fallback and
+      // relies on the MediaStore row alone.
+      final stream = pickAudioStream(video.audioOnlyStreams);
       final url = stream?.url;
       if (url == null || url.isEmpty) {
         // The native side answers this call with an empty stream list rather
@@ -261,14 +269,17 @@ class FathomYtMusic implements FathomYtSource {
       }
 
       _resolveError = null;
-      final art = pickThumbnail(
-        video.videoInfo.thumbnails,
-        maxWidth: kThumbArtMaxWidth,
-      );
-      return ResolvedAudio(
-        audio: audio,
-        artwork: art == null ? null : Uri.tryParse(art),
-      );
+      // Ordered rather than a single choice: the largest preset is not
+      // guaranteed to exist for every video, so the download needs the next
+      // size down as a fallback. Four candidates is enough to cover the full
+      // set — maxres, sd, hq, mq — without turning a failed fetch into a long
+      // series of requests.
+      final artworks = rankedThumbnails(video.videoInfo.thumbnails)
+          .map(Uri.tryParse)
+          .whereType<Uri>()
+          .take(4)
+          .toList(growable: false);
+      return ResolvedAudio(audio: audio, artworks: artworks);
     } on PlatformException catch (e) {
       // A reCAPTCHA challenge is the one failure the package names, and it is
       // the one the user can actually do something about, so it says so

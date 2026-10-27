@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:tabler_icons_plus/tabler_icons_plus.dart';
 
 import '../common/colors.dart';
+import '../common/motion.dart';
 import '../common/player.dart';
 import '../common/settings.dart';
-import '../common/toasts.dart';
 import '../models/tracks.dart';
 import '../services/downloads.dart';
 import 'glass.dart';
@@ -26,6 +26,7 @@ Future<void> showTrackActions(
     context: context,
     backgroundColor: Colors.transparent,
     barrierColor: FathomColors.scrim,
+    sheetAnimationStyle: kModalMotion,
     builder: (ctx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -49,56 +50,21 @@ Future<void> showTrackActions(
     case _TrackAction.addToQueue:
       await context.read<FathomPlayer>().enqueue([track]);
     case _TrackAction.download:
-      await _runDownload(context, track);
+      await downloadTrack(context, track);
   }
 }
 
 enum _TrackAction { play, playNext, addToQueue, download }
-
-Future<void> _runDownload(BuildContext context, FathomTrack track) =>
-    downloadTrack(context, track);
 
 /// Fetches one remote track and files it on the device, reporting the outcome.
 ///
 /// Public because it is also what a bare tap on a remote result does: nothing
 /// remote is streamed any more, so "play this search result" and "keep this
 /// search result" are the same action, and the tile must not grow a second copy
-/// of the toast flow.
+/// of the download flow.
 Future<void> downloadTrack(BuildContext context, FathomTrack track) async {
-  final toasts = context.read<FathomToasts>();
   final downloads = context.read<FathomDownloads>();
-  final title = track.title;
-
-  // A pending message rather than a bar at the bottom: the rail and the mini
-  // player own that edge, and a download is usually started from a row that is
-  // near the top of the list, so the message belongs where the eye already is.
-  //
-  // Dismissible because this one can be long-running: the fetch has its own
-  // bounds now, but a user who no longer cares about a download should not have
-  // to wait it out. The outcome below still arrives either way, because the work
-  // is not tied to the message.
-  final pending = toasts.show(
-    'Downloading',
-    detail: title,
-    icon: TablerIcons.cloudDownload,
-    // Held for the length of the fetch, and replaced by the outcome below.
-    duration: const Duration(minutes: 5),
-    dismissible: true,
-  );
-
-  final ok = await downloads.download(track);
-  toasts.dismiss(pending);
-  // A bare "could not save" leaves the user nothing to act on, and the reasons
-  // are not interchangeable: a captcha is worth retrying later, a video with no
-  // audio stream never will be. The service remembers why, so show it. The
-  // title keeps the outcome and the detail carries the cause, so the two are
-  // not run together into one line that gets truncated.
-  toasts.show(
-    ok ? 'Saved' : 'Could not save',
-    detail: ok ? title : (downloads.failureOf(track.videoId) ?? title),
-    icon: ok ? TablerIcons.check : TablerIcons.alertTriangle,
-    tone: ok ? ToastTone.success : ToastTone.failure,
-  );
+  await downloads.download(track);
 }
 
 class _ActionSheet extends StatelessWidget {
