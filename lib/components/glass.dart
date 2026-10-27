@@ -33,8 +33,21 @@ BoxDecoration _flatDecoration({
   required Color? accent,
   required double borderOpacity,
   required bool shadow,
+  bool filled = true,
 }) {
   final isLight = FathomColors.brightness == Brightness.light;
+
+  // An outline-only card has no fill to separate it from the page, so its 1px
+  // edge is the whole surface: it uses the shared hairline token, the same
+  // color the section rules inside the card are drawn with. A tinted or
+  // translucent border (the filled recipe below) would disappear against a
+  // page whose rows already carry their own borders.
+  if (!filled) {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: FathomColors.hairline, width: 1),
+    );
+  }
 
   final Color flatFill;
   if (accent != null) {
@@ -207,9 +220,8 @@ class GlassContainer extends StatelessWidget {
 /// them would be work with nothing to show for it.
 ///
 /// Use [GlassContainer] when the card floats over content the user can still
-/// see around and through it — sheets, the mini player, the toast layer, an
-/// inline label over a list — where the blur is what makes the card read as a
-/// separate layer. Use this one when the card is just a panel in a page's own
+/// see around and through it — sheets, the mini player, an inline label over a
+/// list — where the blur is what makes the card read as a separate layer. Use this one when the card is just a panel in a page's own
 /// layout.
 class FlatContainer extends StatelessWidget {
   const FlatContainer({
@@ -220,6 +232,7 @@ class FlatContainer extends StatelessWidget {
     this.padding,
     this.shadow = false,
     this.borderOpacity = 0.07,
+    this.filled = true,
   });
 
   final Widget child;
@@ -227,6 +240,19 @@ class FlatContainer extends StatelessWidget {
   final Color? accent;
   final EdgeInsetsGeometry? padding;
   final bool shadow;
+
+  /// Whether the card paints the translucent fill recipe behind its content.
+  ///
+  /// True is the default panel. False renders the card as an outline only: the
+  /// shared hairline border, no fill and no shadow, with the page showing
+  /// through the body. That is the right look for a page whose cards are
+  /// really stacks of rows with their own separators (Settings sections, the
+  /// equalizer cards) — a filled body there reads as a second, competing
+  /// surface behind content that already defines itself with rules.
+  ///
+  /// [borderOpacity] only applies to the filled form; the outline-only form
+  /// always uses [FathomColors.hairline] so it matches the dividers inside it.
+  final bool filled;
 
   /// The alpha of the card's 1px outline. It is the same knob
   /// [GlassContainer.borderOpacity] is, and it means the same thing here, so
@@ -258,6 +284,7 @@ class FlatContainer extends StatelessWidget {
           accent: accent,
           borderOpacity: borderOpacity,
           shadow: shadow,
+          filled: filled,
         ),
         child: content,
       ),

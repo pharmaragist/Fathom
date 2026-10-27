@@ -4,34 +4,40 @@ import 'package:material_color_utilities/material_color_utilities.dart';
 
 /// One generated Material 3 palette for one [brightness].
 ///
-/// Every tone comes out of `material_color_utilities`: hue and chroma are
-/// taken from [seed], and each token below is a tone of a generated
-/// [TonalPalette]. Foreground tiers are alpha steps of `onSurface` so they
-/// flip from white-on-dark to black-on-light with no per-widget logic, and
-/// the media tier stays chroma-free white because it sits on artwork, which
-/// can be any color in either theme.
+/// The palette is always monochrome: Fathom's surfaces are near-grey and the
+/// accent is the only chromatic token. Foreground tiers are alpha steps of
+/// `onSurface`, and the media tier stays chroma-free because it sits on artwork.
 class FathomPalette {
-  FathomPalette._(this.brightness);
+  FathomPalette._(this.brightness)
+      : _neutral = _neutralPalette,
+        _media = TonalPalette.of(_seedHct.hue, 0);
 
-  /// The seed every neutral, outline and status tone is derived from.
+  /// The fixed brand seed. It is not the accent; accents are chosen separately.
   static const Color seed = Color(0xFFDC8666);
 
   static final Hct _seedHct = Hct.fromInt(seed.toARGB32());
 
-  /// Surfaces: low chroma, so the tone ladder reads as depth, not as hue.
-  static final TonalPalette _neutral = TonalPalette.of(_seedHct.hue, 6);
+  /// Material's monochrome neutral ladder.
+  static final TonalPalette _neutralPalette = SchemeMonochrome(
+    sourceColorHct: _seedHct,
+    isDark: false,
+    contrastLevel: 0,
+  ).neutralPalette;
+
   static final TonalPalette _errorPalette = TonalPalette.of(25, 80);
   static final TonalPalette _warningPalette = TonalPalette.of(40, 100);
 
-  /// Zero chroma: text over artwork must never take a tint from the theme.
-  static final TonalPalette _media = TonalPalette.of(_seedHct.hue, 0);
+  /// Surfaces: the neutral ladder, read as depth, not hue.
+  final TonalPalette _neutral;
 
-  static final Map<Brightness, FathomPalette> _cache = {
-    for (final value in Brightness.values) value: FathomPalette._(value),
-  };
+  /// Zero chroma: text over artwork must never take a tint from the theme.
+  final TonalPalette _media;
+
+  static final Map<Brightness, FathomPalette> _cache = {};
 
   /// The palette for [brightness], built once and reused.
-  static FathomPalette of(Brightness brightness) => _cache[brightness]!;
+  static FathomPalette of(Brightness brightness) =>
+      _cache.putIfAbsent(brightness, () => FathomPalette._(brightness));
 
   final Brightness brightness;
   bool get _isDark => brightness == Brightness.dark;
@@ -101,11 +107,49 @@ class FathomPalette {
   /// Warnings: failed imports, overwrite notices.
   Color get warning => Color(_warningPalette.get(_isDark ? 72 : 45));
 
+  /// The tone band an accent must sit in to stay legible on this palette.
+  ///
+  /// Accents are used as text, icons and thin strokes on [background], not only
+  /// as fills behind ink, so a seed is only a starting point: a dark seed on a
+  /// dark surface disappears, and a pale seed on a light surface does too.
+  /// Dark lifts every accent to at least tone 68 (about 7:1 on the tone-2
+  /// background); light pulls every accent down to at most tone 46 (about
+  /// 4.6:1 on the tone-99 background). Both are HCT tones, so hue survives.
+  double get _accentFloor => _isDark ? 68 : 0;
+  double get _accentCeiling => _isDark ? 100 : 46;
+
+  /// [seed] with its tone clamped into the band that reads against [background].
+  ///
+  /// Only the tone moves: hue and chroma are the accent's identity, and a
+  /// custom seed should still look like itself after the clamp. A seed already
+  /// inside the band is returned untouched, so the common case allocates
+  /// nothing. Results are cached per seed because this runs during builds —
+  /// every row that paints the accent would otherwise pay an HCT conversion.
+  Color readableAccent(Color seed) {
+    final argb = seed.toARGB32();
+    final cached = _readableAccents[argb];
+    if (cached != null) return cached;
+    final hct = Hct.fromInt(argb);
+    final tone = hct.tone.clamp(_accentFloor, _accentCeiling);
+    final result = (tone - hct.tone).abs() < 0.5
+        ? seed
+        : Color(Hct.from(hct.hue, hct.chroma, tone).toInt());
+    return _readableAccents[argb] = result;
+  }
+
   /// Ink for content sitting on [accent]: white on a dark accent, black on a
   /// light one, decided by the accent's own HCT tone rather than per widget.
-  Color onAccent(Color accent) => Color(Hct.fromInt(accent.toARGB32()).tone < 50
-      ? _media.get(100)
-      : _media.get(0));
+  Color onAccent(Color accent) {
+    final argb = accent.toARGB32();
+    final cached = _accentInks[argb];
+    if (cached != null) return cached;
+    final ink =
+        Color(Hct.fromInt(argb).tone < 50 ? _media.get(100) : _media.get(0));
+    return _accentInks[argb] = ink;
+  }
+
+  final Map<int, Color> _readableAccents = {};
+  final Map<int, Color> _accentInks = {};
 }
 
 /// The app's color vocabulary.
@@ -120,24 +164,21 @@ class FathomColors {
 
   /// Accent seed choices offered in Settings. Each is a seed for
   /// `ColorScheme.fromSeed`, not a hand-picked final color.
+  ///
+  /// Four deliberate basics: paper white, the brand terracotta, deep teal and
+  /// aubergine. Custom seeds still append after these; the built-in list stays
+  /// short so the accent sheet is a choice, not a color catalogue.
   static const List<Color> accentSwatches = [
     Color(0xFFFFFFFF),
     Color(0xFFDC8666),
     Color(0xFF138085),
     Color(0xFF544667),
-    Color(0xFFCE7672),
-    Color(0xFFEEB462),
-    Color(0xFFEEC3BD),
-    Color(0xFF364B74),
-    Color(0xFF84815C),
-    Color(0xFFD1CBC0),
-    Color(0xFF4A6B5D),
-    Color(0xFF8B5742),
-    Color(0xFF9C7A97),
-    Color(0xFF6B8496)
   ];
 
   static Brightness _brightness = Brightness.dark;
+
+  /// Whether the dark theme paints pure black. Written by `FathomApp.build`.
+  static bool _amoled = false;
 
   /// The palette the app is currently painted with.
   static FathomPalette get palette => FathomPalette.of(_brightness);
@@ -146,6 +187,9 @@ class FathomColors {
   /// Points every token at the palette for [value]. Called by `FathomApp`
   /// before it builds the subtree, so one theme change repaints everything.
   static void updateBrightness(Brightness value) => _brightness = value;
+
+  /// Whether the dark background is pure black.
+  static void updateAmoled(bool value) => _amoled = value;
 
   /// The brightness a [ThemeMode] resolves to right now: light and dark are
   /// fixed, system follows the device's own day/night setting.
@@ -157,7 +201,9 @@ class FathomColors {
       };
 
   // Surfaces.
-  static Color get background => palette.background;
+  static Color get background => _amoled && _brightness == Brightness.dark
+      ? palette.mediaBackground
+      : palette.background;
 
   // Foreground.
   static Color get onSurface => palette.onSurface;
@@ -189,6 +235,13 @@ class FathomColors {
 
   /// Ink for content on top of an accent color.
   static Color onAccent(Color accent) => palette.onAccent(accent);
+
+  /// [seed] clamped to an accent that stays legible on the active background.
+  ///
+  /// This is the accent every surface should paint: see
+  /// [FathomPalette.readableAccent]. The raw seed remains available through
+  /// `FathomSettings.accentSeeds`, which is what the picker renders.
+  static Color readableAccent(Color seed) => palette.readableAccent(seed);
 
   /// Status and navigation bar styling for the active palette.
   static SystemUiOverlayStyle systemUiOverlayStyle() => SystemUiOverlayStyle(
